@@ -25,15 +25,11 @@ vector_destroy(v);
 ```
 
 ---
----
 
-
-## Example
+## 🌟 Example Usage
 
 <details>
-<summary>EXAMPLE with 3d vector</summary>
-  
-
+<summary><strong>3D Vector Example <code>vector(vec3)</code></strong></summary>
 
 ```c
 #include "CVector.h"
@@ -42,34 +38,34 @@ typedef struct {
     float x;
     float y;
     float z;
-}vec3;
+} vec3;
 
 int main(void)
 {
     vector(vec3) container;
-    vector_init(container); // we should initialize vector first.
+    vector_init(container); // Always initialize your vector before use!
 
-    vec3 a = {3.2,2.1, 33.59};
-    vec3 b = {0.0,0.0,0.0};
+    vec3 a = {3.2, 2.1, 33.59};
+    vec3 b = {0.0, 0.0, 0.0};
 
-    vector_push_back(container,a);
-    vector_push_back(container,b);
-    vector_push_back_args(container,{1,2,3},{1,2,4},{1,2,32});
+    vector_push_back(container, a);
+    vector_push_back(container, b);
 
-    vector_foreach(container,p){
-        printf("(%.2f, %.2f, %.2f)\n", p->x,p->y, p->z);
+    // You can push multiple elements at once:
+    vector_push_back_args(container, {1,2,3}, {1,2,4}, {1,2,32});
+
+    // Elegant iteration:
+    vector_foreach(container, p){
+        printf("(%.2f, %.2f, %.2f)\n", p->x, p->y, p->z);
     }
 
-/*!
-@note: or we can do it the traditional way
-
-    for(int i=0; i < vector_size(container); i++) {
-        printf("(%.2f, %.2f, %.2f)\n", container.data[i].x,container.data[i].y,container.data[i].z);
+    /* Or use traditional indexing if you prefer:
+    for(int i = 0; i < vector_size(container); i++) {
+        printf("(%.2f, %.2f, %.2f)\n", container.data[i].x, container.data[i].y, container.data[i].z);
     }
-*/
+    */
 
-    vector_destroy(container); // !!IMPORTANT!! dont forget to destroy vector to avoid memory leaks
-    
+    vector_destroy(container); // Don't forget to destroy the vector to avoid memory leaks!
     return 0;
 }
 ```
@@ -84,9 +80,67 @@ OUTPUT:
 ```
 </details>
 
+---
+
+
 <details>
-<summary>EXAMPLE with char* (string) </summary>
-  
+<summary><strong>3D Vector Example with custom compare function <code>vector(char*)</code></strong></summary>
+
+```c
+#include "CVector.h"
+
+typedef struct {
+    float x;
+    float y;
+    float z;
+} vec3;
+
+int compare_func(vec3 a, vec3 b) {
+    return a.x == b.x && a.y == b.y &&  a.z == b.z;
+}
+
+void printVec3(vec3 a) {
+    printf("(%.2f, %.2f, %.2f): ",a.x,a.y,a.z);
+}
+
+int main(void)
+{
+    vector(vec3) container;
+    vector_init(container); 
+
+    vec3 a = {3.2, 2.1, 33.59};
+    vec3 b = {0.0, 0.0, 0.0};
+    vec3 c = {1.2, 3.4, 5.6};
+    vec3 d = {33.1, 96.28, -45.6};
+    
+
+    vector_push_back(container, a);
+    vector_push_back(container, b);
+    vector_push_back_args(container, c,d);
+
+    int index = vector_find_custom(container, ((vec3){1.2, 3.4, 5.6}), compare_func); // 2
+    // int index = vector_find_custom(container, c, compare_func); -> 2
+    
+    printVec3(((vec3){1.2, 3.4, 5.6}));
+    printf("index at: %d\n", index);
+
+    vector_destroy(container); // Don't forget to destroy the vector to avoid memory leaks!
+    return 0;
+}
+```
+```bash
+OUTPUT:
+(1.20, 3.40, 5.60): index at: 2
+```
+
+</details>
+
+---
+
+
+<details>
+<summary><strong>String Vector Example <code>vector(char*)</code></strong></summary>
+
 ```c
 #include "CVector.h"
 
@@ -97,19 +151,21 @@ int main(void)
     vector(string) vec;
     vector_init(vec);
 
-    vector_push_back(vec,"hello");
-    vector_push_back(vec,"world");
-    vector_push_back_args(vec,"just","simple","vector");
+    vector_push_back(vec, "hello");
+    vector_push_back(vec, "world");
+
+    // Add multiple strings at once:
+    vector_push_back_args(vec, "just", "simple", "vector");
 
     vector_foreach(vec, item)
         printf("%s\n", *item);
 
     vector_destroy(vec);
-
     return 0;
 }
 ```
-```BASH
+
+```bash
 OUTPUT:
 hello
 world
@@ -119,28 +175,14 @@ vector
 ```
 </details>
 
+---
 
 
-```c
-vector(type)                             -> Declares a generic vector of the specified type (macro, no return).
-vector_init(vec)                         -> Initializes the vector. Warns if already initialized. (void).
-vector_is_valid(vec)                     -> Returns nonzero if the vector is properly initialized (macro, int).
-vector_push_back(vec, value)             -> Appends value to the end of the vector, grows if needed. (void, prints error on fail).
-vector_push_back_args(vec, ...)          -> Appends multiple values at once. (void, prints error on fail).
-vector_at(vec, index)                    -> Returns the element at index. Bounds-checked in debug mode (macro, element type).
-vector_size(vec)                         -> Returns number of elements in the vector (macro, size_t).
-vector_capacity(vec)                     -> Returns current allocated capacity (macro, size_t).
-vector_empty(vec)                        -> Returns 1 if vector is empty, 0 otherwise (macro, int).
-vector_back(vec)                         -> Returns the last element (macro, element type).
-vector_front(vec)                        -> Returns the first element (macro, element type).
-vector_pop_back(vec)                     -> Removes the last element. (void, prints error if not initialized/empty).
-vector_clear(vec)                        -> Removes all elements but keeps memory allocated. (void, prints error if not initialized).
-vector_destroy(vec)                      -> Frees all memory and marks vector as destroyed. (void, prints error if already destroyed or not initialized).
-vector_reserve(vec, new_capacity)        -> Ensures capacity is at least new_capacity. (void, prints error on fail).
-vector_resize(vec, new_size, def_val)    -> Changes vector size, fills new elements with default_value. (void, prints error on fail).
-vector_shrink_to_fit(vec)                -> Reduces capacity to match size, freeing unused memory. (void, prints error if not initialized).
-vector_foreach(vec, item)                -> Macro for iterating over elements; item is a pointer to each element.
-vector_find(vec, value)                  -> Returns index of first occurrence of value, or 0 if not found (macro, size_t).
-vector_find_index(vec, value)            -> Returns index of first occurrence of value, or 0 if not found (macro, int).
-vector_find_custom(vec, value, cmp_func) -> Returns index of first occurrence using custom comparator, or 0 if not found (macro, int).
-```
+✨ **Tip:**  
+- Use `vector_push_back_args` for convenient bulk insertion.
+- The `vector_foreach` macro makes your code cleaner and safer.
+- Always call `vector_destroy` when you're done!
+
+**📖 API Reference**  
+👉 [See the full API documentation here!](API.md)  
+Explore all vector macros and functions with examples and detailed descriptions.
