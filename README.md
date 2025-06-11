@@ -24,8 +24,64 @@ vector_init(v);
 vector_destroy(v);
 ```
 
----
+<details>
+<summary> CLICK FOR EXAMPLE USAGE WITH STRUCTS </summary>
 
+```c
+#include "CVector.h"
+
+typedef struct {
+    int id;
+    int age;
+    const char* name;
+}Students;
+
+int main(int argc, char const *argv[])
+{
+    vector(Students) vec;
+    vector_init(vec); // !!! ALWAYS INITIALIZE VECTOR
+
+    // classic push_back
+    vector_push_back(vec, ((Students){.id = 1, .age = 22, .name = "semih ozdemir"}));
+
+    // variadic function
+    vector_push_back_args(vec, {4, 89, "bergman"}, {3, 88, "kurosowa"},  {2, 54, "tarkovski"}, {5, 70, "kubrick"});
+    
+    vector_foreach(vec, item) // item is pointer
+        printf("id: %d age: %d name: %s\n", item->id, item->age, item->name);
+    printf("\n");
+
+    int size = vector_size(vec);
+    int capacity = vector_capacity(vec);
+
+    printf("vector size: %d vector capacity: %d\n", size,capacity);
+    printf("...shrint to fit...\n");
+    
+    vector_shrink_to_fit(vec);
+    size = vector_size(vec);
+    capacity = vector_capacity(vec);
+    printf("vector size: %d vector capacity: %d\n", size,capacity);
+    
+    vector_destroy(vec); // !!!! IMPORTANT: dont forget to destory vector to avoid memory leaks    
+    return 0;
+}
+```
+```bash
+OUTPUT:
+id: 1 age: 22 name: semih ozdemir
+id: 4 age: 89 name: bergman
+id: 3 age: 88 name: kurosowa
+id: 2 age: 54 name: tarkovski
+id: 5 age: 70 name: kubrick
+
+vector size: 5 vector capacity: 8
+...shrint to fit...
+vector size: 5 vector capacity: 5
+```
+
+</details>
+
+---
 
 **📖 API Reference DOCUMENTATION**  
 👉 [See the full API documentation here!](API.md)  
@@ -33,7 +89,7 @@ Explore all vector macros and functions with examples and detailed descriptions.
 
 ---
 
-**🧑‍💻 Usage EXAMPLES**  
+**🧑‍💻 FOR MORE  EXAMPLES**  
 👉 [See practical vector usage and code samples here!](EXAMPLES.md)  
 Explore real-world examples including 3D vector structs and string arrays with clean iteration and bulk operations.
 
@@ -83,7 +139,7 @@ This benchmark measures the performance of inserting elements into the **middle*
 
 ## System Information
 
-- **CPU:** Intel Core i3-12100f @ 2.7 GHz
+- **CPU:** Intel Core i3-12100f @ 3.30 GHz 12M Cache, up to 4.30 GHz
 - **RAM:** 16 GB DDR4
 - **OS:** Windows 10 22H2
 - **Compiler:** mingw g++
