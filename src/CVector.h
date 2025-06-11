@@ -1,3 +1,26 @@
+/*!
+    @file CVector.h
+    @brief  generic dynamic array (vector) implementation for C.
+
+    This header provides a type-safe, efficient, and flexible vector (dynamic array) solution for C projects.
+    Easily create dynamic arrays for any data type (primitives, structs, pointers) with automatic memory management,
+    safe access, and modern iteration features.
+
+    @author Semih "zyr1on" Özdemir
+
+    @details
+    - Type-generic: Instantiates vectors for any type via macros.
+    - Dynamic: Grows and shrinks automatically as needed.
+    - Safety: Provides bounds checking in debug mode.
+    - Modern: Includes handy iteration and batch operations.
+
+    @warning
+    - Always initialize your vector with `vector_init()` before use.
+    - Always destroy your vector with `vector_destroy()` after use to avoid memory leaks.
+    - This header relies on C99 standard features (variadic macros, etc).
+*/
+
+
 #ifndef VECTOR_H
 #define VECTOR_H
 
