@@ -20,7 +20,6 @@
     - This header relies on C99 standard features (variadic macros, etc).
 */
 
-
 #ifndef VECTOR_H
 #define VECTOR_H
 
