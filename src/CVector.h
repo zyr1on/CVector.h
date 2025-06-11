@@ -151,6 +151,31 @@
     } \
 } while(0)
 
+// // Bulk operations for better performance
+// #define vector_push_back_bulk(vec, values, count) do { \
+//     if ((vec).magic != VECTOR_MAGIC_INIT) { \
+//         fprintf(stderr, "Error: Vector not initialized before push_back_bulk at %s:%d\n", __FILE__, __LINE__); \
+//         break; \
+//     } \
+//     size_t needed_capacity = (vec).size + (count); \
+//     if (needed_capacity > (vec).capacity) { \
+//         size_t new_capacity = (vec).capacity; \
+//         while (new_capacity < needed_capacity) { \
+//             new_capacity = VECTOR_GROW_CAPACITY(new_capacity); \
+//         } \
+//         typeof((vec).data) new_data = realloc((vec).data, new_capacity * sizeof(*(vec).data)); \
+//         if (__builtin_expect(new_data != NULL, 1)) { \
+//             (vec).data = new_data; \
+//             (vec).capacity = new_capacity; \
+//         } else { \
+//             fprintf(stderr, "Error: Memory allocation failed in push_back_bulk at %s:%d\n", __FILE__, __LINE__); \
+//             break; \
+//         } \
+//     } \
+//     memcpy((vec).data + (vec).size, (values), (count) * sizeof(*(vec).data)); \
+//     (vec).size += (count); \
+// } while(0)
+
 // resize with bulk initialization
 #define vector_resize(vec, new_size, def_val) do { \
     if ((vec).magic != VECTOR_MAGIC_INIT) { \
@@ -363,11 +388,56 @@ static inline int vector_push_back_args_inline(void *vec_ptr, size_t element_siz
     (vec).size = new_size; \
 } while(0)
 
-#define vector_insert_args(vec, pos, first, ...) do { \
-    typeof(first) temp_array[] = {first, __VA_ARGS__}; \
-    size_t temp_count = sizeof(temp_array)/sizeof(temp_array[0]); \
-    vector_insert_range(vec, pos, temp_array, temp_count); \
+// !! PRIVATE !! 
+static inline int vector_insert_args_inline(void *vec_ptr, size_t element_size, 
+                                            size_t index,
+                                            const void *elements, size_t count) {
+    struct { void *data; size_t size; size_t capacity; uint32_t magic; } *vec = vec_ptr;
+    if (__builtin_expect(vec->magic != VECTOR_MAGIC_INIT, 0))
+        return -1; // Error
+    if (__builtin_expect(index > vec->size, 0))
+        return -1; // Invalid index
+    size_t new_size = vec->size + count;
+    if (__builtin_expect(new_size > vec->capacity, 0)) {
+        size_t new_capacity = vec->capacity;
+        if (__builtin_expect(new_capacity == 0, 0))
+            new_capacity = count > 4 ? count : 4;
+        else
+            while (new_capacity < new_size)
+                new_capacity = new_capacity * 2;
+        void *new_data = realloc(vec->data, new_capacity * element_size);
+        if (__builtin_expect(new_data != NULL, 1)) {
+            vec->data = new_data;
+            vec->capacity = new_capacity;
+        } 
+        else return -1; // Error
+    }
+    // Mevcut elemanları sağa kaydır (index'ten sonrası)
+    memmove(
+        (char*)vec->data + (index + count) * element_size,
+        (char*)vec->data + index * element_size,
+        (vec->size - index) * element_size
+    );
+    // Yeni elemanları yerleştir
+    memcpy((char*)vec->data + index * element_size, elements, count * element_size);
+    vec->size = new_size;
+    return 0;
+}
+
+#define vector_insert_args(vec, idx, ...) do { \
+    typeof(*(vec).data) tmp[] = {__VA_ARGS__}; \
+    if (vector_insert_args_inline(&(vec), sizeof(*(vec).data), (idx), tmp, \
+                                  sizeof(tmp) / sizeof(tmp[0])) != 0) { \
+        fprintf(stderr, "[x] Error: vector_insert_args failed at %s:%d\n", __FILE__, __LINE__); \
+    } \
 } while(0)
+
+// #define vector_insert_args(vec, pos, first, ...) do { \
+//     typeof(first) temp_array[] = {first, __VA_ARGS__}; \
+//     size_t temp_count = sizeof(temp_array)/sizeof(temp_array[0]); \
+//     vector_insert_range(vec, pos, temp_array, temp_count); \
+// } while(0)
+
 
 #define vector_swap(vec1, vec2) do { \
     if (__builtin_expect((vec1).magic != VECTOR_MAGIC_INIT, 0)) { \
@@ -398,7 +468,11 @@ static inline int vector_push_back_args_inline(void *vec_ptr, size_t element_siz
     /* Magic numbers remain the same - both should be VECTOR_MAGIC_INIT */ \
 } while(0)
 
+
+
+
 /*!
+    
 @note: OLD VERSION WITHOUT inline
 #define vector_push_back_args(vec, ...) do { \
     if (__builtin_expect((vec).magic != VECTOR_MAGIC_INIT, 0)) { \
@@ -422,6 +496,7 @@ static inline int vector_push_back_args_inline(void *vec_ptr, size_t element_siz
         vector_push_back(vec, tmp[i]); \
     } \
 } while(0)
+
 */
 
 #endif
