@@ -30,12 +30,6 @@ vector_destroy(v);
 ---
 
 
-
-✨ **Tip:**  
-- Use `vector_push_back_args` for convenient bulk insertion.
-- The `vector_foreach` macro makes your code cleaner and safer.
-- Always call `vector_destroy` when you're done!
-
 **📖 API Reference DOCUMENTATION**  
 👉 [See the full API documentation here!](API.md)  
 Explore all vector macros and functions with examples and detailed descriptions.
