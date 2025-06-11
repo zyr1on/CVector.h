@@ -40,13 +40,11 @@
         uint32_t magic; \
     }
 
-// Vector type declaration macro
+// vector type declaration macro
 #define vector(type) VECTOR_DEFINE(type)
 
-// Check if vector is properly initialized
 #define vector_is_valid(vec) ((vec).magic == VECTOR_MAGIC_INIT)
 
-// Initialize vector with protection against double init
 #define vector_init(vec) do { \
     if ((vec).magic == VECTOR_MAGIC_INIT) { \
         fprintf(stderr, "[!] Warning: Vector already initialized: 'vector_init' at %s:%d\n", __FILE__, __LINE__); \
@@ -58,10 +56,10 @@
     (vec).magic = VECTOR_MAGIC_INIT; \
 } while(0)
 
-// Optimized growth strategy - use bit shifts for power of 2 growth
+// growth strategy
 #define VECTOR_GROW_CAPACITY(cap) ((cap) < 4 ? 4 : (cap) << 1)
 
-// Push back element with optimized growth and branch prediction hints
+// Push back element with branch prediction hints
 #define vector_push_back(vec, value) do { \
     if (__builtin_expect((vec).magic != VECTOR_MAGIC_INIT, 0)) { \
         fprintf(stderr, "[x] Error: Vector not initialized before: 'vector_push_back' at %s:%d\n", __FILE__, __LINE__); \
@@ -81,8 +79,6 @@
     (vec).data[(vec).size++] = (value); \
 } while(0)
 
-
-
 // Fast element access with bounds checking in debug mode
 #ifdef DEBUG
 #define vector_at(vec, index) \
@@ -93,14 +89,13 @@
 #define vector_at(vec, index) ((vec).data[index])
 #endif
 
-// Inline functions for frequently used operations
 #define vector_size(vec) ((vec).size)
 #define vector_capacity(vec) ((vec).capacity)
 #define vector_empty(vec) ((vec).size == 0)
 #define vector_back(vec) ((vec).data[(vec).size - 1])
 #define vector_front(vec) ((vec).data[0])
 
-// Optimized pop back
+
 #define vector_pop_back(vec) do { \
     if (__builtin_expect((vec).magic != VECTOR_MAGIC_INIT, 0)) { \
         fprintf(stderr, "[x] Error: Vector not initialized before 'vector_pop_back' at %s:%d\n", __FILE__, __LINE__); \
@@ -113,7 +108,7 @@
     (vec).size--; \
 } while(0)
 
-// Fast clear
+// clear ( set size to 0) basic!
 #define vector_clear(vec) do { \
     if ((vec).magic != VECTOR_MAGIC_INIT) { \
         fprintf(stderr, "[x] Error: Vector not initialized before 'vector_pop_back' at %s:%d\n", __FILE__, __LINE__); \
@@ -141,7 +136,7 @@
     (vec).magic = VECTOR_MAGIC_DESTROYED; \
 } while(0)
 
-// Optimized reserve with alignment
+// reserve with alignment
 #define vector_reserve(vec, new_capacity) do { \
     if ((vec).magic != VECTOR_MAGIC_INIT) { \
         fprintf(stderr, "[x] Error: Vector not initialized before 'vector_reserve' at %s:%d\n", __FILE__, __LINE__); \
@@ -184,7 +179,7 @@
 //     (vec).size += (count); \
 // } while(0)
 
-// Optimized resize with bulk initialization
+// resize with bulk initialization
 #define vector_resize(vec, new_size, def_val) do { \
     if ((vec).magic != VECTOR_MAGIC_INIT) { \
         fprintf(stderr, "[x] Error: Vector not initialized before 'vector_resize' at %s:%d\n", __FILE__, __LINE__); \
@@ -201,7 +196,7 @@
     (vec).size = (new_size); \
 } while(0)
 
-// Shrink to fit - remove unused capacity
+// shrink to fit - remove unused capacity
 #define vector_shrink_to_fit(vec) do { \
     if ((vec).magic != VECTOR_MAGIC_INIT) { \
         fprintf(stderr, "[x] Error: Vector not initialized before 'vector_shrink_to_fit' at %s:%d\n", __FILE__, __LINE__); \
@@ -292,7 +287,7 @@
     _result; \
 })
 
-
+// !! PRIVATE !! 
 static inline int vector_push_back_args_inline(void *vec_ptr, size_t element_size, 
                                                const void *elements, size_t count) {
     struct { void *data; size_t size; size_t capacity; uint32_t magic; } *vec = vec_ptr;
