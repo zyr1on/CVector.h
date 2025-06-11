@@ -42,3 +42,7 @@ Explore all vector macros and functions with examples and detailed descriptions.
 **🧑‍💻 Usage Examples**  
 👉 [See practical vector usage and code samples here!](EXAMPLE.md)  
 Explore real-world examples including 3D vector structs and string arrays with clean iteration and bulk operations.
+
+
+**🧑‍💻 Header file**  
+👉 [file](src/CVector.h)  
