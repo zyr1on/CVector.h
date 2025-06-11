@@ -78,7 +78,7 @@ vector is empty
 
 
 <details>
-<summary>🚀 <strong>3D Vector Example (<code>vector(vec3)</code>)</strong></summary>
+<summary>🚀 <strong>3D Vector (struct)  Example (<code>vector(vec3)</code>)</strong></summary>
 
 This example demonstrates how to create a vector of 3D points, push elements, iterate, and clean up:
 
@@ -128,7 +128,7 @@ int main(void) {
 ---
 
 <details>
-<summary>🔍 <strong>3D Vector with Custom Comparison (<code>vector_find_custom</code>)</strong></summary>
+<summary>🔍 <strong>3D Vector (struct) with Custom Comparison (<code>vector_find_custom</code>)</strong></summary>
 
 Find the index of a struct using your own comparison function:
 
