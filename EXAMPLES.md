@@ -154,7 +154,7 @@ int main(void) {
     vec3 a = {3.2, 2.1, 33.59}, b = {0,0,0}, c = {1.2,3.4,5.6}, d = {33.1,96.28,-45.6};
     vector_push_back(container, a);
     vector_push_back(container, b);
-    vector_push_back_args(container, c, d);
+    vector_push_back_args(container, c, d, {11.4,12.64,-45635.12});
 
     int idx = vector_find_custom(container, ((vec3){1.2, 3.4, 5.6}), compare_func);
 
