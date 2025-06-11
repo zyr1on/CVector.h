@@ -36,13 +36,13 @@ vector_destroy(v);
 - The `vector_foreach` macro makes your code cleaner and safer.
 - Always call `vector_destroy` when you're done!
 
-**📖 API Reference**  
+**📖 API Reference DOCUMENTATION**  
 👉 [See the full API documentation here!](API.md)  
 Explore all vector macros and functions with examples and detailed descriptions.
 
 ---
 
-**🧑‍💻 Usage Examples**  
+**🧑‍💻 Usage EXAMPLES**  
 👉 [See practical vector usage and code samples here!](EXAMPLES.md)  
 Explore real-world examples including 3D vector structs and string arrays with clean iteration and bulk operations.
 
