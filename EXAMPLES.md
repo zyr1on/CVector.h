@@ -253,6 +253,100 @@ hello, world, just, simple, vector,
 
 ---
 
+<details>
+<summary>📝 <strong>insert range of elements (Point structure) (<code>vector(char*)</code>)</strong></summary>
+
+```c
+#include "CVector.h"
+typedef struct {
+    int x;
+    int y;
+} Point;
+
+int main(void) {
+    vector(Point) vec;
+    vector_init(vec);
+   
+    Point a = {1,2};
+    vector_push_back(vec,a); 
+    vector_push_back(vec, ( (Point) {.x = 12, .y = 34}) );
+    vector_push_back(vec, ( (Point) {.x = 45, .y = 56}) ); 
+    
+    vector_foreach(vec, item)
+        printf("(%d, %d)\n", item->x, item->y);
+    
+    printf("---\n");
+
+    Point points[] = {{.x = 3, .y =5} , {.x = -31, .y = -52}}; 
+    vector_insert_range(vec, 1, points, 2); // inserts elements to index 1
+    
+    vector_foreach(vec, item)
+        printf("(%d, %d)\n", item->x, item->y);
+
+    vector_destroy(vec);
+    return 0;
+}
+```
+**Output:**
+```
+(1, 2)  
+(12, 34)
+(45, 56)
+---     
+(1, 2)
+(3, 5)
+(-31, -52)
+(12, 34)
+(45, 56)
+```
+</details>
+
+---
+
+<details>
+<summary>📝 <strong>insert args of elements (Point structure) (<code>vector(char*)</code>)</strong></summary>
+
+```c
+#include "CVector.h"
+typedef struct {
+    int x;
+    int y;
+} Point;
+
+int main(void) {
+    vector(Point) vec;
+    vector_init(vec);
+   
+    vector_push_back(vec, ( (Point) {.x = 12, .y = 34}) );
+    vector_push_back(vec, ( (Point) {.x = 45, .y = 56}) ); 
+    
+    vector_foreach(vec, item)
+        printf("(%d, %d)\n", item->x, item->y);
+    
+    printf("\n---\n");
+
+    vector_insert_args(vec, 1 , {1,2}, {3,4});
+
+    vector_foreach(vec, item)
+        printf("(%d, %d)\n", item->x, item->y);
+
+    vector_destroy(vec);
+    return 0;
+}
+```
+**Output:**
+```
+(12, 34)
+(45, 56)
+---
+(12, 34)
+(1, 2)
+(3, 4)
+(45, 56)
+```
+</details>
+
+---
 
 ✨ **Tips:**  
 - Use `vector_push_back_args` for convenient batch insertion.  
