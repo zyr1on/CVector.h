@@ -17,13 +17,10 @@ This header-only library provides a fast, safe, and easy-to-use generic dynamic 
 ```c
 #include "CVector.h"
 
-vector(int) v;
+vector(T) v;
 vector_init(v);
-
-... 
 ...
 ...
-
 vector_destroy(v);
 ```
 
