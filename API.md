@@ -34,8 +34,8 @@ int vector_at(vec, index)                    -> Returns the element at index. Bo
 int vector_size(vec)                         -> Returns number of elements in the vector (macro, size_t).
 int vector_capacity(vec)                     -> Returns current allocated capacity (macro, size_t).
 int vector_empty(vec)                        -> Returns 1 if vector is empty, 0 otherwise (macro, int).
-int vector_find(vec, value)                  -> Returns index of first occurrence of value, or 0 if not found (macro, size_t).
-int vector_find_custom(vec, value, cmp_func) -> Returns index of first occurrence using custom comparator, or 0 if not found (macro, int).
+int vector_find(vec, value)                  -> Returns index of first occurrence of value, or -1 if not found (macro, size_t).
+int vector_find_custom(vec, value, cmp_func) -> Returns index of first occurrence using custom comparator, or -1 if not found (macro, int).
 
 vector_back(vec)                             -> Returns the last element (macro, element type).
 vector_front(vec)                            -> Returns the first element (macro, element type).
