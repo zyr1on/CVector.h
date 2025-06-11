@@ -348,18 +348,18 @@ static inline int vector_push_back_args_inline(void *vec_ptr, size_t element_siz
 } while(0)
 
 
-#define vector_insert_range(vec, position, array, count) do { \
+#define vector_insert_range(vec, pos, arr, count) do { \
     if (__builtin_expect((vec).magic != VECTOR_MAGIC_INIT, 0)) { \
         fprintf(stderr, "[x] Error: Vector not initialized before: 'vector_insert_range' at %s:%d\n", __FILE__, __LINE__); \
         break; \
     } \
-    if (__builtin_expect((array) == NULL, 0)) { \
+    if (__builtin_expect((arr) == NULL, 0)) { \
         fprintf(stderr, "[x] Error: Source array is NULL: 'vector_insert_range' at %s:%d\n", __FILE__, __LINE__); \
         break; \
     } \
-    size_t pos = (position); \
+    size_t _pos = (pos); \
     size_t insert_count = (count); \
-    if (__builtin_expect(pos > (vec).size, 0)) { \
+    if (__builtin_expect(_pos > (vec).size, 0)) { \
         fprintf(stderr, "[x] Error: Insert position out of bounds: 'vector_insert_range' at %s:%d\n", __FILE__, __LINE__); \
         break; \
     } \
@@ -381,10 +381,10 @@ static inline int vector_push_back_args_inline(void *vec_ptr, size_t element_siz
             break; \
         } \
     } \
-    if (pos < (vec).size) { \
-        memmove(&(vec).data[pos + insert_count], &(vec).data[pos], ((vec).size - pos) * sizeof(*(vec).data)); \
+    if (_pos < (vec).size) { \
+        memmove(&(vec).data[_pos + insert_count], &(vec).data[_pos], ((vec).size - _pos) * sizeof(*(vec).data)); \
     } \
-    memcpy(&(vec).data[pos], (array), insert_count * sizeof(*(vec).data)); \
+    memcpy(&(vec).data[_pos], (arr), insert_count * sizeof(*(vec).data)); \
     (vec).size = new_size; \
 } while(0)
 
@@ -393,6 +393,37 @@ static inline int vector_push_back_args_inline(void *vec_ptr, size_t element_siz
     size_t temp_count = sizeof(temp_array)/sizeof(temp_array[0]); \
     vector_insert_range(vec, pos, temp_array, temp_count); \
 } while(0)
+
+#define vector_swap(vec1, vec2) do { \
+    if (__builtin_expect((vec1).magic != VECTOR_MAGIC_INIT, 0)) { \
+        fprintf(stderr, "[x] Error: First vector not initialized before: 'vector_swap' at %s:%d\n", __FILE__, __LINE__); \
+        break; \
+    } \
+    if (__builtin_expect((vec2).magic != VECTOR_MAGIC_INIT, 0)) { \
+        fprintf(stderr, "[x] Error: Second vector not initialized before: 'vector_swap' at %s:%d\n", __FILE__, __LINE__); \
+        break; \
+    } \
+    /* Type safety check - both vectors must be of same type */ \
+    if (__builtin_expect(sizeof(*(vec1).data) != sizeof(*(vec2).data), 0)) { \
+        fprintf(stderr, "[x] Error: Vector type mismatch in 'vector_swap' at %s:%d\n", __FILE__, __LINE__); \
+        break; \
+    } \
+    /* Swap data pointers */ \
+    typeof((vec1).data) temp_data = (vec1).data; \
+    (vec1).data = (vec2).data; \
+    (vec2).data = temp_data; \
+    /* Swap sizes */ \
+    size_t temp_size = (vec1).size; \
+    (vec1).size = (vec2).size; \
+    (vec2).size = temp_size; \
+    /* Swap capacities */ \
+    size_t temp_capacity = (vec1).capacity; \
+    (vec1).capacity = (vec2).capacity; \
+    (vec2).capacity = temp_capacity; \
+    /* Magic numbers remain the same - both should be VECTOR_MAGIC_INIT */ \
+} while(0)
+
+
 
 
 /*!
