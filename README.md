@@ -44,6 +44,5 @@ Explore all vector macros and functions with examples and detailed descriptions.
 Explore real-world examples including 3D vector structs and string arrays with clean iteration and bulk operations.
 
 
-**🧑‍💻 DOWNLOAD **  
+**🧑‍💻 DOWNLOAD**  
 👉 [Header File!](src/CVector.h)  
-Explore real-world examples including 3D vector structs and string arrays with clean iteration and bulk operations.
