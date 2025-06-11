@@ -348,6 +348,46 @@ static inline int vector_push_back_args_inline(void *vec_ptr, size_t element_siz
 } while(0)
 
 
+#define vector_insert_range(vec, position, array, count) do { \
+    if (__builtin_expect((vec).magic != VECTOR_MAGIC_INIT, 0)) { \
+        fprintf(stderr, "[x] Error: Vector not initialized before: 'vector_insert_range' at %s:%d\n", __FILE__, __LINE__); \
+        break; \
+    } \
+    if (__builtin_expect((array) == NULL, 0)) { \
+        fprintf(stderr, "[x] Error: Source array is NULL: 'vector_insert_range' at %s:%d\n", __FILE__, __LINE__); \
+        break; \
+    } \
+    size_t pos = (position); \
+    size_t insert_count = (count); \
+    if (__builtin_expect(pos > (vec).size, 0)) { \
+        fprintf(stderr, "[x] Error: Insert position out of bounds: 'vector_insert_range' at %s:%d\n", __FILE__, __LINE__); \
+        break; \
+    } \
+    if (__builtin_expect(insert_count == 0, 0)) { \
+        break; \
+    } \
+    size_t new_size = (vec).size + insert_count; \
+    if (new_size > (vec).capacity) { \
+        size_t new_capacity = new_size; \
+        if (new_capacity < VECTOR_GROW_CAPACITY((vec).capacity)) { \
+            new_capacity = VECTOR_GROW_CAPACITY((vec).capacity); \
+        } \
+        typeof((vec).data) new_data = realloc((vec).data, new_capacity * sizeof(*(vec).data)); \
+        if (__builtin_expect(new_data != NULL, 1)) { \
+            (vec).data = new_data; \
+            (vec).capacity = new_capacity; \
+        } else { \
+            fprintf(stderr, "[x] Error: Memory allocation failed: 'vector_insert_range' at %s:%d\n", __FILE__, __LINE__); \
+            break; \
+        } \
+    } \
+    if (pos < (vec).size) { \
+        memmove(&(vec).data[pos + insert_count], &(vec).data[pos], ((vec).size - pos) * sizeof(*(vec).data)); \
+    } \
+    memcpy(&(vec).data[pos], (array), insert_count * sizeof(*(vec).data)); \
+    (vec).size = new_size; \
+} while(0)
+
 #define vector_insert_args(vec, pos, first, ...) do { \
     typeof(first) temp_array[] = {first, __VA_ARGS__}; \
     size_t temp_count = sizeof(temp_array)/sizeof(temp_array[0]); \
