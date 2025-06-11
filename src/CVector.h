@@ -319,6 +319,35 @@ static inline int vector_push_back_args_inline(void *vec_ptr, size_t element_siz
     } \
 } while(0)
 
+#define vector_insert(vec, position, value) do { \
+    if (__builtin_expect((vec).magic != VECTOR_MAGIC_INIT, 0)) { \
+        fprintf(stderr, "[x] Error: Vector not initialized before: 'vector_insert' at %s:%d\n", __FILE__, __LINE__); \
+        break; \
+    } \
+    size_t pos = (position); \
+    if (__builtin_expect(pos > (vec).size, 0)) { \
+        fprintf(stderr, "[x] Error: Insert position out of bounds: 'vector_insert' at %s:%d\n", __FILE__, __LINE__); \
+        break; \
+    } \
+    if (__builtin_expect((vec).size >= (vec).capacity, 0)) { \
+        size_t new_capacity = VECTOR_GROW_CAPACITY((vec).capacity); \
+        typeof((vec).data) new_data = realloc((vec).data, new_capacity * sizeof(*(vec).data)); \
+        if (__builtin_expect(new_data != NULL, 1)) { \
+            (vec).data = new_data; \
+            (vec).capacity = new_capacity; \
+        } else { \
+            fprintf(stderr, "[x] Error: Memory allocation failed: 'vector_insert' at %s:%d\n", __FILE__, __LINE__); \
+            break; \
+        } \
+    } \
+    if (pos < (vec).size) { \
+        memmove(&(vec).data[pos + 1], &(vec).data[pos], ((vec).size - pos) * sizeof(*(vec).data)); \
+    } \
+    (vec).data[pos] = (value); \
+    (vec).size++; \
+} while(0)
+
+
 /*!
     
 @note: OLD VERSION WITHOUT inline
