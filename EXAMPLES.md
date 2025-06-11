@@ -159,7 +159,7 @@ int main(void) {
     int idx = vector_find_custom(container, ((vec3){1.2, 3.4, 5.6}), compare_func);
 
     printVec3((vec3){1.2, 3.4, 5.6});
-    printf("index at: %d\n", idx);
+    printf("linear search index: %d\n", idx);
 
     vector_destroy(container);
     return 0;
@@ -167,7 +167,7 @@ int main(void) {
 ```
 **Output:**
 ```
-(1.20, 3.40, 5.60): index at: 2
+(1.20, 3.40, 5.60): linear search index: 2
 ```
 </details>
 
