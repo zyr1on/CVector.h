@@ -181,7 +181,7 @@ This shows how to work with a vector of C-strings:
 ```c
 #include "CVector.h"
 
-typedef char *string;
+typedef const char *string;
 
 int main(void) {
     vector(string) vec;
@@ -205,6 +205,49 @@ world
 just
 simple
 vector
+```
+</details>
+
+---
+
+<details>
+<summary>📝 <strong>String Vector Example With strcmp Compare Function(<code>vector(char*)</code>)</strong></summary>
+
+This shows how to work with a vector of C-strings:
+
+```c
+#include "CVector.h"
+#include<string.h> // for strcmp
+
+
+typedef const char *string;
+int str_eq(string a, string b) {
+    return strcmp(a, b) == 0;
+}
+
+int main(void) {
+    vector(string) vec;
+    vector_init(vec);
+
+    vector_push_back(vec, "hello");
+    vector_push_back(vec, "world");
+    vector_push_back_args(vec, "just", "simple", "vector");
+
+    vector_foreach(vec, item)
+        printf("%s, ", *item);
+    printf("\n\n");
+
+    int index = vector_find_custom(vec, "just", str_eq);
+    printf("'just' index: %d\n",index);
+    vector_destroy(vec);
+    return 0;
+}
+```
+**Output:**
+```
+hello, world, just, simple, vector, 
+
+'just' index: 2
 ```
 </details>
 
