@@ -350,5 +350,6 @@ int main(void) {
 
 ✨ **Tips:**  
 - Use `vector_push_back_args` for convenient batch insertion.  
-- `vector_foreach` gives you cleaner and safer iteration.  
+- `vector_foreach` gives you cleaner and safer iteration.
+- Always call `vector_init` when need to create a vector. 
 - Always call `vector_destroy` when done to avoid memory leaks.
