@@ -19,8 +19,11 @@ This header-only library provides a fast, safe, and easy-to-use generic dynamic 
 
 vector(int) v;
 vector_init(v);
-vector_push_back(v, 42);
-printf("%d\n", vector_at(v, 0)); // 42
+
+... 
+...
+...
+
 vector_destroy(v);
 ```
 
