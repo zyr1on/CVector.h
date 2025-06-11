@@ -79,15 +79,12 @@
     (vec).data[(vec).size++] = (value); \
 } while(0)
 
-// Fast element access with bounds checking in debug mode
-#ifdef DEBUG
+
 #define vector_at(vec, index) \
     (((vec).magic == VECTOR_MAGIC_INIT && (index) < (vec).size) ? \
      (vec).data[index] : \
      (fprintf(stderr, "Error: Invalid vector access at %s:%d\n", __FILE__, __LINE__), abort(), (vec).data[0]))
-#else
-#define vector_at(vec, index) ((vec).data[index])
-#endif
+
 
 #define vector_size(vec) ((vec).size)
 #define vector_capacity(vec) ((vec).capacity)
