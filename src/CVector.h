@@ -151,31 +151,6 @@
     } \
 } while(0)
 
-// // Bulk operations for better performance
-// #define vector_push_back_bulk(vec, values, count) do { \
-//     if ((vec).magic != VECTOR_MAGIC_INIT) { \
-//         fprintf(stderr, "Error: Vector not initialized before push_back_bulk at %s:%d\n", __FILE__, __LINE__); \
-//         break; \
-//     } \
-//     size_t needed_capacity = (vec).size + (count); \
-//     if (needed_capacity > (vec).capacity) { \
-//         size_t new_capacity = (vec).capacity; \
-//         while (new_capacity < needed_capacity) { \
-//             new_capacity = VECTOR_GROW_CAPACITY(new_capacity); \
-//         } \
-//         typeof((vec).data) new_data = realloc((vec).data, new_capacity * sizeof(*(vec).data)); \
-//         if (__builtin_expect(new_data != NULL, 1)) { \
-//             (vec).data = new_data; \
-//             (vec).capacity = new_capacity; \
-//         } else { \
-//             fprintf(stderr, "Error: Memory allocation failed in push_back_bulk at %s:%d\n", __FILE__, __LINE__); \
-//             break; \
-//         } \
-//     } \
-//     memcpy((vec).data + (vec).size, (values), (count) * sizeof(*(vec).data)); \
-//     (vec).size += (count); \
-// } while(0)
-
 // resize with bulk initialization
 #define vector_resize(vec, new_size, def_val) do { \
     if ((vec).magic != VECTOR_MAGIC_INIT) { \
@@ -423,11 +398,7 @@ static inline int vector_push_back_args_inline(void *vec_ptr, size_t element_siz
     /* Magic numbers remain the same - both should be VECTOR_MAGIC_INIT */ \
 } while(0)
 
-
-
-
 /*!
-    
 @note: OLD VERSION WITHOUT inline
 #define vector_push_back_args(vec, ...) do { \
     if (__builtin_expect((vec).magic != VECTOR_MAGIC_INIT, 0)) { \
@@ -451,7 +422,6 @@ static inline int vector_push_back_args_inline(void *vec_ptr, size_t element_siz
         vector_push_back(vec, tmp[i]); \
     } \
 } while(0)
-
 */
 
 #endif
