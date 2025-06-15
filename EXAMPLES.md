@@ -221,7 +221,7 @@ This shows how to work with a vector of C-strings:
 
 
 typedef const char *string;
-int str_eq(string a, string b) {
+int str_eq(string a, string b) { // function to compare string and returns true or false with int value.
     return strcmp(a, b) == 0;
 }
 
@@ -237,7 +237,7 @@ int main(void) {
         printf("%s, ", *item);
     printf("\n\n");
 
-    int index = vector_find_custom(vec, "just", str_eq);
+    int index = vector_find_custom(vec, "just", str_eq); // using str_eq function to compare str_eq("just", vector_contents)
     printf("'just' index: %d\n",index);
     vector_destroy(vec);
     return 0;
