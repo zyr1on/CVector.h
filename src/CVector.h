@@ -1,5 +1,5 @@
 /*!
-    @file CVector.h
+    @file CVector.h header file
     @brief  generic dynamic array (vector) implementation for C.
 
     This header provides a type-safe, efficient, and flexible vector (dynamic array) solution for C projects.
