@@ -52,7 +52,7 @@ vector_foreach(vec, item)                    -> Macro for iterating over element
 vector_swap(vec1, vec2)                      -> Swaps vector contents
 ```
 
-# COMPARE WITH C++ STL std::vector<T> v;
+# COMPARE WITH C++ STL `std::vector<T> v;`
 
 | Function                  | CVector.h                        | std::vector                         |
 |---------------------------|----------------------------------|-------------------------------------|
