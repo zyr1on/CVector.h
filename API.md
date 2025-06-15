@@ -24,12 +24,12 @@ Enjoy modern C vectors! 😊
 
 
 ```c
-vector(type)                                 -> Declares a generic vector of the specified type (macro, no return).
+vector(type) vector_name                     -> Declares a generic vector of the specified type by vector_name variable (macro, no return).
 vector_init(vec)                             -> Initializes the vector. Warns if already initialized. (void).
-vector_is_valid(vec)                         -> Returns nonzero if the vector is properly initialized (macro, int).
+vector_is_valid(vec)                         -> Returns nonzero if the vector is properly initialized (macro, int). (actually it is private :) )
 vector_push_back(vec, value)                 -> Appends value to the end of the vector, grows if needed. (void, prints error on fail).
 vector_push_back_args(vec, ...)              -> Appends multiple values at once. (void, prints error on fail).
-vector_insert(vec, position, value)          -> Inserts elements at a specific position in the vector
+vector_insert(vec, position, value)            -> Inserts elements at a specific position in the vector
 vector_insert_range(vec, pos, arr, count)    -> Inserts a range of elements
 vector_insert_args(vec, pos, first, ...)     -> Inserts one or more elements at the specified position in the vector.
 
