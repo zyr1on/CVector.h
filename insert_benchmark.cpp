@@ -5,7 +5,7 @@
 #include <numeric>
 
 int main() {
-    constexpr int N = 100000;  // Çok büyük değerlerde insert O(N^2) olacağı için 100k önerilir
+    constexpr int N = 100000;  
     constexpr int RUNS = 5;
 
     double cvec_times[RUNS] = {0};
