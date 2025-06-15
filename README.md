@@ -15,7 +15,8 @@ This header-only library provides a fast, safe, and easy-to-use generic dynamic 
 ## 🚀 Quick Start
 
 ```c
-#include "CVector.h"
+// "This header file can be found in src/CVector.h."
+#include "CVector.h" 
 
 vector(T) v;
 vector_init(v);
