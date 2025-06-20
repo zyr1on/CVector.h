@@ -2,7 +2,7 @@
 
 
 <details>
-<summary>📝 <strong>Basic Integer Vector Example (<code>vector(int)</code>)</strong></summary>
+<summary> <strong>Basic Integer Vector Example (<code>vector(int)</code>)</strong></summary>
 
 ```c
 #include "CVector.h"
@@ -78,7 +78,7 @@ vector is empty
 
 
 <details>
-<summary>🚀 <strong>3D Vector (struct)  Example (<code>vector(vec3)</code>)</strong></summary>
+<summary><strong>3D Vector (struct)  Example (<code>vector(vec3)</code>)</strong></summary>
 
 This example demonstrates how to create a vector of 3D points, push elements, iterate, and clean up:
 
@@ -128,7 +128,7 @@ int main(void) {
 ---
 
 <details>
-<summary>🔍 <strong>3D Vector (struct) with Custom Comparison (<code>vector_find_custom</code>)</strong></summary>
+<summary><strong>3D Vector (struct) with Custom Comparison (<code>vector_find_custom</code>)</strong></summary>
 
 Find the index of a struct using your own comparison function:
 
@@ -174,7 +174,7 @@ int main(void) {
 ---
 
 <details>
-<summary>📝 <strong>String Vector Example (<code>vector(char*)</code>)</strong></summary>
+<summary><strong>String Vector Example (<code>vector(char*)</code>)</strong></summary>
 
 This shows how to work with a vector of C-strings:
 
@@ -211,7 +211,7 @@ vector
 ---
 
 <details>
-<summary>📝 <strong>String Vector Example With strcmp Compare Function(<code>vector(char*)</code>)</strong></summary>
+<summary><strong>String Vector Example With strcmp Compare Function(<code>vector(char*)</code>)</strong></summary>
 
 This shows how to work with a vector of C-strings:
 
@@ -254,7 +254,7 @@ hello, world, just, simple, vector,
 ---
 
 <details>
-<summary>📝 <strong>insert range of elements (Point structure) (<code>vector(char*)</code>)</strong></summary>
+<summary><strong>insert range of elements (Point structure) (<code>vector(char*)</code>)</strong></summary>
 
 ```c
 #include "CVector.h"
@@ -304,7 +304,7 @@ int main(void) {
 ---
 
 <details>
-<summary>📝 <strong>insert args of elements (Point structure) (<code>vector(char*)</code>)</strong></summary>
+<summary><strong>insert args of elements (Point structure) (<code>vector(char*)</code>)</strong></summary>
 
 ```c
 #include "CVector.h"
@@ -348,7 +348,7 @@ int main(void) {
 
 ---
 
-✨ **Tips:**  
+**Tips:**  
 - Use `vector_push_back_args` for convenient batch insertion.  
 - `vector_foreach` gives you cleaner and safer iteration.
 - Always call `vector_init` when need to create a vector. 
