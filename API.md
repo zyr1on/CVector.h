@@ -6,11 +6,11 @@
 > Always call `vector_init()` before use and `vector_destroy()` after use to avoid memory leaks.  
 > Designed for performance and usability in C projects.  
 
-## 🛠️ Function Reference
+##  Function Reference
 
 Below are the main functions/macros, their purpose, and usage. All macros print helpful error messages if misused!
 
-## ⚠️ Notes
+## ! Notes
 
 - Always call `vector_init` before use and `vector_destroy` when done to avoid leaks.
 - Not thread-safe.
