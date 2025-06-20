@@ -1,18 +1,18 @@
-# CVector.h – Simple & Safe Generic Vector Library for C 🚀
+# CVector.h – Simple & Safe Generic Vector Library for C 
 
 This header-only library provides a fast, safe, and easy-to-use generic dynamic array (vector) implementation for C. With modern features and robust error checks, you can enjoy the flexibility of C++-style vectors right in C, with zero dependencies and zero runtime overhead for most operations.
 
 ---
 
-## ✨ Features
+## Features
 
-- 🛡️ **Type-safe Macros:** Create vectors of any type with compile-time safety.
-- 🔥 **Branch Prediction and Fast Growth:** Uses bitwise tricks for efficient resizing.
-- 🧩 **Debug Checks:** Catches double init/free, out-of-bounds, and misuse.
-- ♻️ **No Hidden Allocations:** All memory management is explicit and safe.
+-  **Type-safe Macros:** Create vectors of any type with compile-time safety.
+-  **Branch Prediction and Fast Growth:** Uses bitwise tricks for efficient resizing.
+-  **Debug Checks:** Catches double init/free, out-of-bounds, and misuse.
+-  **No Hidden Allocations:** All memory management is explicit and safe.
 ---
 
-## 🚀 Quick Start
+##  Quick Start
 
 ```c
 // "This header file can be found in src/CVector.h."
@@ -85,18 +85,18 @@ vector size: 5 vector capacity: 5
 ---
 
 **📖 API Reference DOCUMENTATION**  
-👉 [See the full API documentation here!](API.md)  
+ [See the full API documentation here!](API.md)  
 Explore all vector macros and functions with examples and detailed descriptions.
 
 ---
 
-**🧑‍💻 FOR MORE  EXAMPLES**  
-👉 [See practical vector usage and code samples here!](EXAMPLES.md)  
+** FOR MORE  EXAMPLES**  
+ [See practical vector usage and code samples here!](EXAMPLES.md)  
 Explore real-world examples including 3D vector structs and string arrays with clean iteration and bulk operations.
 
 
-**🧑‍💻 DOWNLOAD**  
-👉 [Header File!](src/CVector.h)  
+**DOWNLOAD**  
+[Header File!](src/CVector.h)  
 
 
 
