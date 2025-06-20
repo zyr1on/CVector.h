@@ -181,7 +181,7 @@ This shows how to work with a vector of C-strings:
 ```c
 #include "CVector.h"
 
-typedef const char *string;
+typedef const char* string;
 
 int main(void) {
     vector(string) vec;
