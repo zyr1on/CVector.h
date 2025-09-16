@@ -83,6 +83,22 @@ vector size: 5 vector capacity: 5
 </details>
 
 ---
+## Memory Management
+
+When you are done with a vector, always release its memory.  
+You can now use the new helper function:
+
+```c
+vector(int) v;
+vector_init(v);
+
+vector_push_back(v, 10);
+vector_push_back(v, 20);
+
+// Free memory safely
+cvector_free(&v);
+```
+---
 
 **📖 API Reference DOCUMENTATION**  
  [See the full API documentation here!](API.md)  

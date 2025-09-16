@@ -353,3 +353,36 @@ int main(void) {
 - `vector_foreach` gives you cleaner and safer iteration.
 - Always call `vector_init` when need to create a vector. 
 - Always call `vector_destroy` when done to avoid memory leaks.
+
+---
+
+## 📌 3. `free_example.c`
+
+```c
+#include <stdio.h>
+#include "CVector.h"
+
+int main() {
+    CVector(int) myVec = NULL;
+
+    for (int i = 1; i <= 5; i++) {
+        cvector_push_back(myVec, i * 10);
+    }
+
+    printf("Vector elements: ");
+    for (size_t i = 0; i < cvector_size(myVec); i++) {
+        printf("%d ", myVec[i]);
+    }
+    printf("\n");
+
+    printf("Size before free: %zu\n", cvector_size(myVec));
+
+    // Free allocated memory
+    cvector_free(&myVec);
+
+    if (myVec == NULL) {
+        printf("Vector successfully freed!\n");
+    }
+
+    return 0;
+}

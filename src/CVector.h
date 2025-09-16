@@ -498,5 +498,13 @@ static inline int vector_insert_args_inline(void *vec_ptr, size_t element_size,
 } while(0)
 
 */
+// --- New function: Free vector memory safely ---
+static inline void cvector_free(void *vec) {
+    void **p = (void **)vec;
+    if (p && *p) {
+        free(((size_t *)(*p)) - 2); // free underlying allocation
+        *p = NULL;
+    }
+}
 
-#endif
+#endif // CVECTOR_H
