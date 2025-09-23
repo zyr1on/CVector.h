@@ -153,6 +153,7 @@ Benchmark results may vary on different platforms.
 |---------------------------|----------------------------------|-------------------------------------|
 | declare vector            | vector(T) vec; ✔️                  | std::vector<T> v; ✔️              |
 | init                      | vector_init(vec) ✔️              | automatic ✔️                         |
+| data()                      | vec.data ✔️              | vec.data() ✔️                         |
 | push_back                 | vector_push_back ✔️              | v.push_back ✔️                      |
 | push_back (variadic)      | vector_push_back_args ✔️         | (C++20: v.insert w/ fold) ✔️/⚠️        |
 | insert                    | vector_insert ✔️                 | v.insert ✔️                         |
