@@ -1,4 +1,4 @@
-# CVector.h – Simple & Safe Generic Vector Library for C 
+# CVector.h – Simple & Safe Generic Vector Header Only Library for C 
 
 This header-only library provides a fast, safe, and easy-to-use generic dynamic array (vector) implementation for C. With modern features and robust error checks, you can enjoy the flexibility of C++-style vectors right in C, with zero dependencies and zero runtime overhead for most operations.
 
