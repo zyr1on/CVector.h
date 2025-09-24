@@ -315,7 +315,7 @@ static inline int vector_push_back_args_inline(void *vec_ptr, size_t element_siz
     typeof(*(vec).data) tmp[] = {__VA_ARGS__}; \
     if (vector_push_back_args_inline(&(vec), sizeof(*(vec).data), tmp, \
                                      sizeof(tmp) / sizeof(tmp[0])) != 0) { \
-        fprintf(stderr, "[x] Error: vector_push_back_args failed at %s:%d\n", __FILE__, __LINE__); \
+        fprintf(stderr, "[x] Error: vector_push_back_args failed at %s:%d\n (maybe not initialized)", __FILE__, __LINE__); \
     } \
 } while(0)
 
