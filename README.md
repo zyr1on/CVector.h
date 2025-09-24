@@ -82,6 +82,54 @@ vector size: 5 vector capacity: 5
 
 </details>
 
+
+<details>
+<summary> CLICK FOR EXAMPLE USAGE WITH STRUCTS 2 </summary>
+
+```c
+#include "vector.h"
+
+struct Vector3{
+    float x,y,z;
+};
+typedef struct Vector3 Vector3;
+
+void vector_print(Vector3* vector) {
+    printf("(%f,%f,%f) ", vector->x,vector->y,vector->z);
+}
+
+
+int main(int argc, char const *argv[])
+{
+    vector(Vector3) vec;
+    vector_init(vec);
+    
+    vector_push_back(vec, ( (Vector3) {.x = 0.0, .y = 0.33, .z = 0.15 } ) );
+    vector_push_back_args(vec, {0.12,0.13,0.14},{0.31321,0.1321,0.513532});
+
+    vector_foreach(vec,item) {  // item is pointer to Vector3 struct in vec.data
+        vector_print(item);     // if vector_print takes Vector3 vector instead of Vector3* pointer, vector_print should be vector_print(*item);
+        printf("\n");
+    }
+
+    vector_destroy(vec);
+
+    return 0;
+}
+
+}
+```
+```bash
+OUTPUT:
+(0.000000,0.330000,0.150000)
+(0.120000,0.130000,0.140000)
+(0.313210,0.132100,0.513532)
+```
+
+</details>
+
+
+
 ---
 
 **📖 API Reference DOCUMENTATION**  
