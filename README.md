@@ -149,7 +149,7 @@ vector_push_back_args(indices, 0, 1, 2, 2, 3, 0);
 
 // Upload to GPU and draw as usual with VAO/VBO/EBO
 ```
-For mentioned function => [`OpenGLDrawSquareWithVector`](https://github.com/zyr1on/CVector.h/blob/main/src/OpenGLDrawSquareWithVector.c) 
+For more detailed code here => [`OpenGLDrawSquareWithVector`](https://github.com/zyr1on/CVector.h/blob/main/src/OpenGLDrawSquareWithVector.c) 
 
 </details>
 
