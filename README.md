@@ -128,7 +128,31 @@ OUTPUT:
 
 </details>
 
+<details>
+<summary> # CVector in OpenGL </summary>
 
+```c
+```c
+#include "vector.h"
+
+vector(float) vertices;
+vector(unsigned int) indices;
+
+vector_init(vertices);
+vector_push_back_args(vertices, -0.5f, -0.5f, 0.0f);
+vector_push_back_args(vertices,  0.5f, -0.5f, 0.0f);
+vector_push_back_args(vertices,  0.5f,  0.5f, 0.0f);
+vector_push_back_args(vertices, -0.5f,  0.5f, 0.0f);
+
+vector_init(indices);
+vector_push_back_args(indices, 0, 1, 2, 2, 3, 0);
+
+// Upload to GPU and draw as usual with VAO/VBO/EBO
+```
+For more details => [`OpenGLDrawSquareWithVector.c`]([https://github.com/zyr1on/CVector.h/blob/main/include/vector.h#L118](https://github.com/zyr1on/CVector.h/blob/main/src/OpenGLDrawSquareWithVector.c)) 
+
+
+</details>
 
 ---
 
