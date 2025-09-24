@@ -15,7 +15,7 @@ This header-only library provides a fast, safe, and easy-to-use generic dynamic 
 ##  Quick Start
 
 ```c
-// "This header file can be found in src/CVector.h."
+// "This header file can be found in include/vector.h."
 #include "vector.h" 
 
 vector(T) v;
@@ -167,7 +167,7 @@ Explore real-world examples including 3D vector structs and string arrays with c
 
 
 **DOWNLOAD**  
-[Header File!](src/CVector.h)  
+[Header File!](include/vector.h)  
 
 
 
