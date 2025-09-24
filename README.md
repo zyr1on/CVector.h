@@ -105,7 +105,7 @@ int main(int argc, char const *argv[])
     vector_init(vec);
     
     vector_push_back(vec, ( (Vector3){.x = 0.0, .y = 0.33, .z = 0.15} ) );
-    vector_push_back_args(vec, {0.12,0.13,0.14},{0.31321,0.1321,0.513532});
+    vector_push_back_args(vec, {0.12,0.13,0.14}, {0.31321,0.1321,0.513532} );
 
     vector_foreach(vec,item) {  // item is pointer to Vector3 struct in vec.data
         vector_print(item);     // if vector_print takes Vector3 vector instead of Vector3* pointer, vector_print should be vector_print(*item);
