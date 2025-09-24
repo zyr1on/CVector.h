@@ -16,7 +16,7 @@ This header-only library provides a fast, safe, and easy-to-use generic dynamic 
 
 ```c
 // "This header file can be found in src/CVector.h."
-#include "CVector.h" 
+#include "vector.h" 
 
 vector(T) v;
 vector_init(v);
@@ -29,7 +29,7 @@ vector_destroy(v);
 <summary> CLICK FOR EXAMPLE USAGE WITH STRUCTS </summary>
 
 ```c
-#include "CVector.h"
+#include "vector.h"
 
 typedef struct {
     int id;
@@ -149,7 +149,7 @@ Benchmark results may vary on different platforms.
 
 # COMPARE WITH C++ STL `std::vector<T> v;`
 
-| Function                  | CVector.h                        | std::vector                         |
+| Function                  | vector.h                        | std::vector                         |
 |---------------------------|----------------------------------|-------------------------------------|
 | declare vector            | vector(T) vec; ✔️                  | std::vector<T> v; ✔️              |
 | init                      | vector_init(vec) ✔️              | automatic ✔️                         |
