@@ -5,7 +5,7 @@
 <summary> <strong>Basic Integer Vector Example (<code>vector(int)</code>)</strong></summary>
 
 ```c
-#include "CVector.h"
+#include "vector.h"
 
 int main(void)
 {
@@ -83,7 +83,7 @@ vector is empty
 This example demonstrates how to create a vector of 3D points, push elements, iterate, and clean up:
 
 ```c
-#include "CVector.h"
+#include "vector.h"
 
 typedef struct {
     float x, y, z;
@@ -133,7 +133,7 @@ int main(void) {
 Find the index of a struct using your own comparison function:
 
 ```c
-#include "CVector.h"
+#include "vector.h"
 
 typedef struct {
     float x, y, z;
@@ -179,7 +179,7 @@ int main(void) {
 This shows how to work with a vector of C-strings:
 
 ```c
-#include "CVector.h"
+#include "vector.h"
 
 typedef const char* string;
 
@@ -216,7 +216,7 @@ vector
 This shows how to work with a vector of C-strings:
 
 ```c
-#include "CVector.h"
+#include "vector.h"
 #include<string.h> // for strcmp
 
 
@@ -257,7 +257,7 @@ hello, world, just, simple, vector,
 <summary><strong>insert range of elements (Point structure) (<code>vector(char*)</code>)</strong></summary>
 
 ```c
-#include "CVector.h"
+#include "vector.h"
 typedef struct {
     int x;
     int y;
@@ -307,7 +307,7 @@ int main(void) {
 <summary><strong>insert args of elements (Point structure) (<code>vector(char*)</code>)</strong></summary>
 
 ```c
-#include "CVector.h"
+#include "vector.h"
 typedef struct {
     int x;
     int y;
