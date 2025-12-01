@@ -87,6 +87,7 @@
 
 
 #define vector_size(vec) ((vec).size)
+#define vector_bytesize(vec) ((vec).size * sizeof(*(vec).data))
 #define vector_capacity(vec) ((vec).capacity)
 #define vector_empty(vec) ((vec).size == 0)
 #define vector_back(vec) ((vec).data[(vec).size - 1])
