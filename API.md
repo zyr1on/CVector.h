@@ -34,7 +34,8 @@ vector_insert_range(vec, pos, arr, count)    -> Inserts a range of elements
 vector_insert_args(vec, pos, first, ...)     -> Inserts one or more elements at the specified position in the vector.
 
 int vector_at(vec, index)                    -> Returns the element at index. Bounds-checked (macro, element type).
-int vector_size(vec)                         -> Returns number of elements in the vector (macro, size_t).
+int vector_bytesize(vec) -> Returns total size in bytes of elements in the vector (macro, size_t).
+int vector_bytesize(vec)                     -> Returns total byte size of vector elements(macro,size_t).
 int vector_capacity(vec)                     -> Returns current allocated capacity (macro, size_t).
 int vector_empty(vec)                        -> Returns 1 if vector is empty, 0 otherwise (macro, int).
 int vector_find(vec, value)                  -> Returns index of first occurrence of value, or -1 if not found (macro, size_t).
