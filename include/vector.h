@@ -116,6 +116,7 @@
 } while(0)
 
 // Destroy vector with protection against double destroy and error reporting
+// no need to free string literals such as "const char* name on students struct".
 #define vector_destroy(vec) do { \
     if ((vec).magic == VECTOR_MAGIC_DESTROYED) { \
         fprintf(stderr, "[x] Error: Vector already destroyed at %s:%d\n", __FILE__, __LINE__); \
