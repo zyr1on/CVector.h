@@ -104,7 +104,7 @@ into the vector's buffer.
 * @param vec The vector structure to modify.
 * @return A pointer to the newly reserved slot, or NULL on failure.
 */
-#define vector_emplace_back_ptr(vec) ({ \
+#define private_vector_emplace_back_ptr(vec) ({ \
     typeof((vec).data) _slot_ptr = NULL; \
     int _success = 1; \
     if (__builtin_expect((vec).magic != VECTOR_MAGIC_INIT, 0)) { \
@@ -127,6 +127,20 @@ into the vector's buffer.
     } \
     _slot_ptr; /* return of macro (Pointer) */ \
 })
+
+/**
+ * Constructs an object in-place at the end of the vector.
+ * Uses C99 compound literals to cast the arguments to the vector's type.
+ * usage: vector_emplace_back(vec, 10);
+ * usage: vector_emplace_back(vec, .x=10, .y=20);
+ */
+#define vector_emplace_back(vec, ...) do { \
+    typeof(*(vec).data) * _slot = private_vector_emplace_back_ptr(vec); \
+    if (_slot) { \
+        *_slot = (typeof(*(vec).data)){ __VA_ARGS__ }; \
+    } \
+} while(0)
+
 
 #define vector_at(vec, index) \
     (((vec).magic == VECTOR_MAGIC_INIT && (index) < (vec).size) ? \
@@ -371,7 +385,7 @@ Otherwise, reallocates the buffer to match the current size exactly.
 })
 
 // !! PRIVATE !! 
-static inline int vector_push_back_args_inline(void *vec_ptr, size_t element_size, 
+static inline int private_vector_push_back_args_inline(void *vec_ptr, size_t element_size, 
                                                const void *elements, size_t count) {
     //struct { void *data; size_t size; size_t capacity; uint32_t magic; } *vec = vec_ptr;
     VectorBase* vec = (VectorBase*) vec_ptr;
@@ -407,7 +421,7 @@ static inline int vector_push_back_args_inline(void *vec_ptr, size_t element_siz
 */
 #define vector_push_back_args(vec, ...) do { \
     typeof(*(vec).data) tmp[] = {__VA_ARGS__}; \
-    if (vector_push_back_args_inline(&(vec), sizeof(*(vec).data), tmp, \
+    if (private_vector_push_back_args_inline(&(vec), sizeof(*(vec).data), tmp, \
                                      sizeof(tmp) / sizeof(tmp[0])) != 0) { \
         fprintf(stderr, "[x] Error: vector_push_back_args failed at %s:%d\n (maybe not initialized)", __FILE__, __LINE__); \
     } \
@@ -492,7 +506,7 @@ static inline int vector_push_back_args_inline(void *vec_ptr, size_t element_siz
 } while(0)
 
 // !! PRIVATE !! 
-static inline int vector_insert_args_inline(void *vec_ptr, size_t element_size, 
+static inline int private_vector_insert_args_inline(void *vec_ptr, size_t element_size, 
                                             size_t index,
                                             const void *elements, size_t count) {
     //struct { void *data; size_t size; size_t capacity; uint32_t magic; } *vec = vec_ptr;
@@ -528,7 +542,7 @@ static inline int vector_insert_args_inline(void *vec_ptr, size_t element_size,
 
 #define vector_insert_args(vec, idx, ...) do { \
     typeof(*(vec).data) tmp[] = {__VA_ARGS__}; \
-    if (vector_insert_args_inline(&(vec), sizeof(*(vec).data), (idx), tmp, \
+    if (private_vector_insert_args_inline(&(vec), sizeof(*(vec).data), (idx), tmp, \
                                   sizeof(tmp) / sizeof(tmp[0])) != 0) { \
         fprintf(stderr, "[x] Error: vector_insert_args failed at %s:%d\n", __FILE__, __LINE__); \
     } \
@@ -577,7 +591,7 @@ static inline int vector_insert_args_inline(void *vec_ptr, size_t element_size,
     /* Magic numbers remain the same - both should be VECTOR_MAGIC_INIT */ \
 } while(0)
 
-/*!
+/*!    
 @note: OLD VERSION WITHOUT inline
 #define vector_push_back_args(vec, ...) do { \
     if (__builtin_expect((vec).magic != VECTOR_MAGIC_INIT, 0)) { \
