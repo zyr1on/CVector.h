@@ -309,7 +309,7 @@ Benchmark results may vary on different platforms.
 
 | Function                  | vector.h                        | std::vector                         |
 |---------------------------|----------------------------------|-------------------------------------|
-| declare vector            | vector(T) vec; ✔️                  | 'std::vector<T> v;' ✔️              |
+| declare vector            | vector(T) vec; ✔️                  | "std::vector<<T>> v;" ✔️              |
 | init                      | vector_init(vec) ✔️              | automatic ✔️                         |
 | data()                      | vec.data ✔️              | vec.data() ✔️                         |
 | push_back                 | vector_push_back() ✔️              | v.push_back ✔️                      |
