@@ -38,7 +38,6 @@ typedef struct {
     uint32_t magic;
 } VectorBase;
 
-
 // Generic vector structure with magic number
 #define VECTOR_DEFINE(type) \
     struct { \
@@ -53,6 +52,12 @@ typedef struct {
 
 #define vector_is_valid(vec) ((vec).magic == VECTOR_MAGIC_INIT)
 
+/** 
+Initializes the vector structure. Includes a safety check against 
+double-initialization to prevent memory leaks (orphaning the 'data' pointer)
+if called on an already active vector.
+* @param vec The vector structure to initialize (passed by value/reference, not pointer). 
+*/
 #define vector_init(vec) do { \
     if ((vec).magic == VECTOR_MAGIC_INIT) { \
         fprintf(stderr, "[!] Warning: Vector already initialized: 'vector_init' at %s:%d\n", __FILE__, __LINE__); \
@@ -67,7 +72,13 @@ typedef struct {
 // growth strategy
 #define VECTOR_GROW_CAPACITY(cap) ((cap) < 4 ? 4 : (cap) << 1)
 
-// Push back element with branch prediction hints
+
+/** Appends an element to the end of the vector, automatically resizing the 
+internal buffer if the capacity is exceeded. Performs validation for 
+initialization state and memory allocation success to ensure stability.
+* @param vec The vector structure to modify (passed by value/reference).
+* @param value The element to be added (must match the vector's type).
+*/
 #define vector_push_back(vec, value) do { \
     if (__builtin_expect((vec).magic != VECTOR_MAGIC_INIT, 0)) { \
         fprintf(stderr, "[x] Error: Vector not initialized before: 'vector_push_back' at %s:%d\n", __FILE__, __LINE__); \
@@ -87,6 +98,12 @@ typedef struct {
     (vec).data[(vec).size++] = (value); \
 } while(0)
 
+/** Returns a pointer to the next available slot in the vector, resizing memory 
+if necessary. Allows for zero-copy construction of elements directly 
+into the vector's buffer.
+* @param vec The vector structure to modify.
+* @return A pointer to the newly reserved slot, or NULL on failure.
+*/
 #define vector_emplace_back_ptr(vec) ({ \
     typeof((vec).data) _slot_ptr = NULL; \
     int _success = 1; \
@@ -146,8 +163,11 @@ typedef struct {
     (vec).size = 0; \
 } while(0)
 
-// Destroy vector with protection against double destroy and error reporting
-// no need to free string literals such as "const char* name on students struct".
+/** Deallocates the vector's underlying memory buffer and resets its state. 
+Implements safeguards against double-free errors and attempts to destroy 
+uninitialized vectors to ensure heap integrity.
+* @param vec The vector structure to destroy. 
+*/
 #define vector_destroy(vec) do { \
     if ((vec).magic == VECTOR_MAGIC_DESTROYED) { \
         fprintf(stderr, "[x] Error: Vector already destroyed at %s:%d\n", __FILE__, __LINE__); \
@@ -209,7 +229,14 @@ typedef struct {
 //     (vec).size += (count); \
 // } while(0)
 
-// resize with bulk initialization
+
+/** Resizes the vector to contain 'new_size' elements. If the vector is expanded, 
+new slots are populated with 'def_val'. If reduced, the vector is truncated. 
+Automatically handles capacity reservation if the new size exceeds current capacity.
+* @param vec The vector structure to modify.
+* @param new_size The new size of the vector.
+* @param def_val The value to initialize new elements with (if expanding).
+*/
 #define vector_resize(vec, new_size, def_val) do { \
     if ((vec).magic != VECTOR_MAGIC_INIT) { \
         fprintf(stderr, "[x] Error: Vector not initialized before 'vector_resize' at %s:%d\n", __FILE__, __LINE__); \
@@ -220,13 +247,17 @@ typedef struct {
     } \
     if ((new_size) > (vec).size) { \
         for (size_t i = (vec).size; i < (new_size); i++) { \
-            (vec).data[i] = (del_val); \
+            (vec).data[i] = (def_val); \
         } \
     } \
     (vec).size = (new_size); \
 } while(0)
 
-// shrink to fit - remove unused capacity
+/** Requests the removal of unused capacity to reduce memory usage. 
+If the vector is empty, the underlying buffer is fully deallocated. 
+Otherwise, reallocates the buffer to match the current size exactly.
+* @param vec The vector structure to fit. 
+*/
 #define vector_shrink_to_fit(vec) do { \
     if ((vec).magic != VECTOR_MAGIC_INIT) { \
         fprintf(stderr, "[x] Error: Vector not initialized before 'vector_shrink_to_fit' at %s:%d\n", __FILE__, __LINE__); \
@@ -246,11 +277,25 @@ typedef struct {
     } \
 } while(0)
 
+/** Iterates over each element in the vector using a pointer. 
+* @note **Warning:** Modifying the vector's size (e.g., push_back/resize) inside 
+* this loop may invalidate the iterator pointer due to potential memory reallocation.
+* @param vec The vector to iterate over.
+* @param item The variable name to be used for the iterator pointer.
+*/
 #define vector_foreach(vec, item) \
     for (typeof(*(vec).data) *item = (vec).data; \
          item < (vec).data + (vec).size; \
          ++item)
 
+/** Searches for the first occurrence of 'value' using a custom comparison predicate. 
+* Optimized with 4-step loop unrolling to reduce branch overhead and improve 
+* instruction pipelining.
+* @param vec The vector to search.
+* @param value The target value to find.
+* @param cmp_func A comparison function or macro, called as cmp_func(item, value).
+* @return The index of the first match, or -1 if not found.
+*/
 #define vector_find_custom(vec, value, cmp_func) ({ \
     int _result = -1; \
     if ((vec).magic != VECTOR_MAGIC_INIT) { \
@@ -291,6 +336,14 @@ typedef struct {
     _result; \
 })
 
+/** Searches for the first occurrence of 'value' using the standard equality operator (==). 
+* Optimized with 4-step loop unrolling.
+* @note **Type Restriction:** Valid ONLY for scalar types (integers, floats, pointers, enums). 
+* **DO NOT** use with structs or for string content comparison (use 'vector_find_custom' instead).
+* @param vec The vector to search.
+* @param value The value to compare against.
+* @return The index of the first match, or -1 if not found.
+*/
 #define vector_find(vec, value) ({ \
     int _result = -1; \
     if ((vec).magic != VECTOR_MAGIC_INIT) \
@@ -344,7 +397,14 @@ static inline int vector_push_back_args_inline(void *vec_ptr, size_t element_siz
     return 0;
 }
 
-
+/** Appends multiple elements to the vector in a single operation.
+* Utilizes a temporary stack array to hold variadic arguments before performing 
+* a bulk insertion.
+* @note **Performance:** efficient for batch updates (single resize check), 
+* but incurs stack memory usage proportional to the number of arguments.
+* @param vec The vector structure to modify.
+* @param ... Comma-separated list of values to append (must match vector type).
+*/
 #define vector_push_back_args(vec, ...) do { \
     typeof(*(vec).data) tmp[] = {__VA_ARGS__}; \
     if (vector_push_back_args_inline(&(vec), sizeof(*(vec).data), tmp, \
@@ -353,6 +413,15 @@ static inline int vector_push_back_args_inline(void *vec_ptr, size_t element_siz
     } \
 } while(0)
 
+/** Inserts 'value' at the specified index, shifting subsequent elements to the right 
+* to create space. Automatically handles memory resizing if capacity is exceeded.
+* @note **Performance:** Linear complexity O(N) due to memory shifting (memmove). 
+* Use sparingly on large vectors.
+* @note **Safety:** Validates that 'position' is within bounds (<= size).
+* @param vec The vector structure to modify.
+* @param position The index at which to insert (0 to size).
+* @param value The element to insert.
+*/
 #define vector_insert(vec, position, value) do { \
     if (__builtin_expect((vec).magic != VECTOR_MAGIC_INIT, 0)) { \
         fprintf(stderr, "[x] Error: Vector not initialized before: 'vector_insert' at %s:%d\n", __FILE__, __LINE__); \
@@ -447,13 +516,11 @@ static inline int vector_insert_args_inline(void *vec_ptr, size_t element_size,
         } 
         else return -1; // Error
     }
-    // Mevcut elemanları sağa kaydır (index'ten sonrası)
     memmove(
         (char*)vec->data + (index + count) * element_size,
         (char*)vec->data + index * element_size,
         (vec->size - index) * element_size
     );
-    // Yeni elemanları yerleştir
     memcpy((char*)vec->data + index * element_size, elements, count * element_size);
     vec->size = new_size;
     return 0;
@@ -474,6 +541,13 @@ static inline int vector_insert_args_inline(void *vec_ptr, size_t element_size,
 // } while(0)
 
 
+/** Exchanges the contents of two vectors in constant time O(1) by swapping 
+* their internal pointers and metadata. No deep copying is performed.
+* @note **Safety:** Verifies initialization status and ensures both vectors 
+* store elements of the same size (basic type safety) to prevent corruption.
+* @param vec1 The first vector.
+* @param vec2 The second vector.
+*/
 #define vector_swap(vec1, vec2) do { \
     if (__builtin_expect((vec1).magic != VECTOR_MAGIC_INIT, 0)) { \
         fprintf(stderr, "[x] Error: First vector not initialized before: 'vector_swap' at %s:%d\n", __FILE__, __LINE__); \
@@ -503,11 +577,7 @@ static inline int vector_insert_args_inline(void *vec_ptr, size_t element_size,
     /* Magic numbers remain the same - both should be VECTOR_MAGIC_INIT */ \
 } while(0)
 
-
-
-
 /*!
-    
 @note: OLD VERSION WITHOUT inline
 #define vector_push_back_args(vec, ...) do { \
     if (__builtin_expect((vec).magic != VECTOR_MAGIC_INIT, 0)) { \
@@ -531,7 +601,6 @@ static inline int vector_insert_args_inline(void *vec_ptr, size_t element_size,
         vector_push_back(vec, tmp[i]); \
     } \
 } while(0)
-
 */
 
 #endif
