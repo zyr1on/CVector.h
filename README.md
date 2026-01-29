@@ -313,6 +313,7 @@ Benchmark results may vary on different platforms.
 | init                      | vector_init(vec) ✔️              | automatic ✔️                         |
 | data()                      | vec.data ✔️              | vec.data() ✔️                         |
 | push_back                 | vector_push_back ✔️              | v.push_back ✔️                      |
+| emplace_back                 | vector_emplace_back ✔️              | v.emplace_back ✔️                      |
 | push_back (variadic)      | vector_push_back_args ✔️         | (C++20: v.insert w/ fold) ✔️/⚠️        |
 | insert                    | vector_insert ✔️                 | v.insert ✔️                         |
 | insert_range              | vector_insert_range ✔️           | v.insert(begin, arr, arr+count) ✔️ |
