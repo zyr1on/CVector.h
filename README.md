@@ -312,29 +312,29 @@ Benchmark results may vary on different platforms.
 | declare vector            | vector(T) vec; ✔️                  | std::vector<T> v; ✔️              |
 | init                      | vector_init(vec) ✔️              | automatic ✔️                         |
 | data()                      | vec.data ✔️              | vec.data() ✔️                         |
-| push_back                 | vector_push_back ✔️              | v.push_back ✔️                      |
-| emplace_back                 | vector_emplace_back ✔️              | v.emplace_back ✔️                      |
-| push_back (variadic)      | vector_push_back_args ✔️         | (C++20: v.insert w/ fold) ✔️/⚠️        |
-| insert                    | vector_insert ✔️                 | v.insert ✔️                         |
-| insert_range              | vector_insert_range ✔️           | v.insert(begin, arr, arr+count) ✔️ |
-| insert_args               | vector_insert_args ✔️            | (C++20: variadic insert) ✔️/⚠️         |
-| at                        | vector_at ✔️                     | v.at ✔️                             |
+| push_back                 | vector_push_back() ✔️              | v.push_back ✔️                      |
+| emplace_back                 | vector_emplace_back() ✔️              | v.emplace_back ✔️                      |
+| push_back (variadic)      | vector_push_back_args() ✔️         | (C++20: v.insert w/ fold) ✔️/⚠️        |
+| insert                    | vector_insert() ✔️                 | v.insert ✔️                         |
+| insert_range              | vector_insert_range() ✔️           | v.insert(begin, arr, arr+count) ✔️ |
+| insert_args               | vector_insert_args() ✔️            | (C++20: variadic insert) ✔️/⚠️         |
+| at                        | vector_at() ✔️                     | v.at ✔️                             |
 | operator[]                | vec.data[i] ✔️              | v[i] ✔️                             |
-| size                      | vector_size ✔️                   | v.size() ✔️                         |
-| capacity                  | vector_capacity ✔️               | v.capacity() ✔️                     |
-| empty                     | vector_empty ✔️                  | v.empty() ✔️                        |
-| find                      | vector_find ✔️                   | std::find (with std::begin) ✔️ (NOT std::vector feat)    |
-| find_custom               | vector_find_custom ✔️            | std::find_if + lambda ✔️ (NOT std::vector feat)          |
-| back                      | vector_back ✔️                   | v.back() ✔️                         |
-| front                     | vector_front ✔️                  | v.front() ✔️                        |
-| pop_back                  | vector_pop_back ✔️               | v.pop_back() ✔️                     |
-| clear                     | vector_clear ✔️                  | v.clear() ✔️                        |
-| destroy                   | vector_destroy ✔️                | automatic ✔️                 |
-| reserve                   | vector_reserve ✔️               | v.reserve() ✔️                     |
-| resize                    | vector_resize ✔️                | v.resize(new_size, def_val) ✔️     |
-| shrink_to_fit             | vector_shrink_to_fit ✔️          | v.shrink_to_fit() ✔️               |
-| foreach                   | vector_foreach ✔️                | range-based for ✔️                 |
-| swap                     | vector_swap ✔️                  | v.swap() ✔️               |
+| size                      | vector_size() or vec.size ✔️                   | v.size() ✔️                         |
+| capacity                  | vector_capacity() or vec.capacity ✔️               | v.capacity() ✔️                     |
+| empty                     | vector_empty() ✔️                  | v.empty() ✔️                        |
+| find                      | vector_find() ✔️                   | std::find (with std::begin) ✔️ (NOT std::vector feat)    |
+| find_custom               | vector_find_custom() ✔️            | std::find_if + lambda ✔️ (NOT std::vector feat)          |
+| back                      | vector_back() ✔️                   | v.back() ✔️                         |
+| front                     | vector_front() ✔️                  | v.front() ✔️                        |
+| pop_back                  | vector_pop_back() ✔️               | v.pop_back() ✔️                     |
+| clear                     | vector_clear() ✔️                  | v.clear() ✔️                        |
+| destroy                   | vector_destroy() ✔️                | automatic ✔️                 |
+| reserve                   | vector_reserve() ✔️               | v.reserve() ✔️                     |
+| resize                    | vector_resize() ✔️                | v.resize(new_size, def_val) ✔️     |
+| shrink_to_fit             | vector_shrink_to_fit() ✔️          | v.shrink_to_fit() ✔️               |
+| foreach                   | vector_foreach() ✔️                | range-based for ✔️                 |
+| swap                     | vector_swap() ✔️                  | v.swap() ✔️               |
 
 
 > **Notes:**  
