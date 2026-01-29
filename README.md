@@ -129,9 +129,96 @@ OUTPUT:
 </details>
 
 <details>
-<summary> CVector in OpenGL </summary>
+<summary> CLICK FOR EXAMPLE USAGE WITH STRUCTS via vector_emplace_back </summary>
 
 ```c
+#include "vector.h"
+
+typedef struct  {
+    int value;
+    char* data;
+} Data;
+
+int main() {
+    vector(Data) vec;
+    vector_init(vec);
+    vector_reserve(vec,5);
+
+    for(int i=0; i < 5; i++)
+        vector_emplace_back(vec, i, "hello world"); // for loop
+
+    
+    vector_emplace_back(vec, 12,"test"); // ordered,
+    vector_emplace_back(vec, .data = "hi", .value = 15); // unordered,
+
+    vector_foreach(vec, item) {
+        printf("value: %d, data:%s\n", item->value,item->data);
+    }
+    vector_destroy(vec);
+}
+
+/*
+OUTPUT:
+value: 0, data:hello world
+value: 1, data:hello world
+value: 2, data:hello world
+value: 3, data:hello world
+value: 4, data:hello world
+value: 12, data:test
+value: 15, data:hi
+*/
+```
+</details>
+
+<details>
+<summary> CLICK FOR EXAMPLE USAGE WITH NESTED STRUCTS via vector_emplace_back </summary>
+
+```c
+#include "vector.h"
+
+typedef struct {
+    float x;
+    float y;
+}Vector2f;
+
+typedef struct  {
+    int flag;
+    Vector2f my_vec;
+} Data;
+
+int main() {
+    vector(Data) vec;
+    vector_init(vec);
+    vector_reserve(vec,5);
+
+    // .flag = 3, .my_vec.x = 5, .my_vec.y = 9
+    vector_emplace_back(vec, 3, 5,9);
+    
+    // .flag = 5, .my_vec.x = 13, .my_vec.y = 19
+    vector_emplace_back(vec, .my_vec.x = 13, .flag = 5, .my_vec.y = 19);
+
+    // flag = 15, .my_vec = {3,9}
+    vector_emplace_back(vec, 15, {3,9});
+
+    vector_foreach(vec, item) {
+        printf("flag: %d, my_vec.x: %.2f, my_vec.y:%.2f\n", item->flag, item->my_vec.x, item->my_vec.y);
+    }
+   
+    vector_destroy(vec);
+}
+
+/*
+OUTPUT:
+flag: 3, my_vec.x: 5.00, my_vec.y:9.00
+flag: 5, my_vec.x: 13.00, my_vec.y:19.00
+flag: 15, my_vec.x: 3.00, my_vec.y:9.00
+*/
+```
+</details>
+
+<details>
+<summary> CVector in OpenGL </summary>
+
 ```c
 #include "vector.h"
 
