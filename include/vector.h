@@ -31,6 +31,14 @@
 #define VECTOR_MAGIC_INIT 0xDEADBEEF
 #define VECTOR_MAGIC_DESTROYED 0xFEEDFACE
 
+typedef struct {
+    void *data;
+    size_t size;
+    size_t capacity;
+    uint32_t magic;
+} VectorBase;
+
+
 // Generic vector structure with magic number
 #define VECTOR_DEFINE(type) \
     struct { \
@@ -79,6 +87,29 @@
     (vec).data[(vec).size++] = (value); \
 } while(0)
 
+#define vector_emplace_back_ptr(vec) ({ \
+    typeof((vec).data) _slot_ptr = NULL; \
+    int _success = 1; \
+    if (__builtin_expect((vec).magic != VECTOR_MAGIC_INIT, 0)) { \
+        fprintf(stderr, "[x] Error: Vector not initialized.\n"); \
+        _success = 0; \
+    } \
+    else if (__builtin_expect((vec).size >= (vec).capacity, 0)) { \
+        size_t _new_cap = VECTOR_GROW_CAPACITY((vec).capacity); \
+        typeof((vec).data) _new_data = realloc((vec).data, _new_cap * sizeof(*(vec).data)); \
+        if (__builtin_expect(_new_data != NULL, 1)) { \
+            (vec).data = _new_data; \
+            (vec).capacity = _new_cap; \
+        } else { \
+            fprintf(stderr, "[x] Error: Realloc failed.\n"); \
+            _success = 0; \
+        } \
+    } \
+    if (_success) { \
+        _slot_ptr = &(vec).data[(vec).size++]; \
+    } \
+    _slot_ptr; /* return of macro (Pointer) */ \
+})
 
 #define vector_at(vec, index) \
     (((vec).magic == VECTOR_MAGIC_INIT && (index) < (vec).size) ? \
@@ -289,8 +320,9 @@
 // !! PRIVATE !! 
 static inline int vector_push_back_args_inline(void *vec_ptr, size_t element_size, 
                                                const void *elements, size_t count) {
-    struct { void *data; size_t size; size_t capacity; uint32_t magic; } *vec = vec_ptr;
-    if (__builtin_expect(vec->magic != VECTOR_MAGIC_INIT, 0))
+    //struct { void *data; size_t size; size_t capacity; uint32_t magic; } *vec = vec_ptr;
+    VectorBase* vec = (VectorBase*) vec_ptr;
+	if (__builtin_expect(vec->magic != VECTOR_MAGIC_INIT, 0))
         return -1; // Error
     size_t new_size = vec->size + count;
     if (__builtin_expect(new_size > vec->capacity, 0)) {
@@ -394,7 +426,8 @@ static inline int vector_push_back_args_inline(void *vec_ptr, size_t element_siz
 static inline int vector_insert_args_inline(void *vec_ptr, size_t element_size, 
                                             size_t index,
                                             const void *elements, size_t count) {
-    struct { void *data; size_t size; size_t capacity; uint32_t magic; } *vec = vec_ptr;
+    //struct { void *data; size_t size; size_t capacity; uint32_t magic; } *vec = vec_ptr;
+	VectorBase* vec = (VectorBase*) vec_ptr;
     if (__builtin_expect(vec->magic != VECTOR_MAGIC_INIT, 0))
         return -1; // Error
     if (__builtin_expect(index > vec->size, 0))
