@@ -27,14 +27,18 @@ Enjoy modern C vectors! 😊
 vector(type) vector_name                     -> Declares a generic vector of the specified type by vector_name variable (macro, no return).
 vector_init(vec)                             -> Initializes the vector. Warns if already initialized. (void).
 vector_is_valid(vec)                         -> Returns nonzero if the vector is properly initialized (macro, int). (actually it is private :) )
+
 vector_push_back(vec, value)                 -> Appends value to the end of the vector, grows if needed. (void, prints error on fail).
 vector_push_back_args(vec, ...)              -> Appends multiple values at once. (void, prints error on fail).
-vector_insert(vec, position, value)            -> Inserts elements at a specific position in the vector
+vector_emplace_back(vec, ...)                -> Constructs an element in-place at the end using arguments. (void, prints error on fail).
+private_vector_emplace_back_ptr(vec)         -> Reserves a slot at the end and returns a pointer to it. (Type*, returns NULL on fail).
+
+vector_insert(vec, position, value)          -> Inserts elements at a specific position in the vector
 vector_insert_range(vec, pos, arr, count)    -> Inserts a range of elements
 vector_insert_args(vec, pos, first, ...)     -> Inserts one or more elements at the specified position in the vector.
 
 int vector_at(vec, index)                    -> Returns the element at index. Bounds-checked (macro, element type).
-int vector_bytesize(vec) -> Returns total size in bytes of elements in the vector (macro, size_t).
+int vector_bytesize(vec)                     -> Returns total size in bytes of elements in the vector (macro, size_t).
 int vector_bytesize(vec)                     -> Returns total byte size of vector elements(macro,size_t).
 int vector_capacity(vec)                     -> Returns current allocated capacity (macro, size_t).
 int vector_empty(vec)                        -> Returns 1 if vector is empty, 0 otherwise (macro, int).
