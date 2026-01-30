@@ -38,32 +38,28 @@
     #include <cstdint>
     #include<string.h>
     #include<type_traits>
-
     /**
     * @brief C++ Namespace and Type Deduction Macros
     * C++ `decltype(*ptr)` returns a reference (T&), which cannot be used for 
     * array declarations. TYPE_OF_VAL cleans the reference to get the raw type.
     */
-    
     #define CLIB_PREFIX std::
     #define TYPE_OF(x) decltype(x)
-    #define TYPE_OF_PTR(x) decltype(x)
     #define TYPE_OF_VAL(x) std::remove_reference<decltype(x)>::type
     #define NULL_PTR nullptr
 #else 
 /* Standard C Compiler Configuration */
     #include <stdio.h>
     #include <stdlib.h>
-    #include <stdint.h>    
+    #include <stdint.h>
+    #include <string.h>
     /**
     * @brief C99 typeof Support
     * In C, typeof handles both values and pointers without reference issues.
     */
-
     #define CLIB_PREFIX 
-    #define TYPE_OF(x) TYPE_OF(x)
-    #define TYPE_OF_VAL(x) typeof(x)
-    #define TYPE_OF_PTR(x) typeof(x)
+    #define TYPE_OF(x) typeof(x)
+    #define TYPE_OF_VAL(x) typeof(x)	
     #define NULL_PTR NULL
 #endif
 
