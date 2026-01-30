@@ -37,6 +37,7 @@
     #include <cstdlib>
     #include <cstdint>
     #include<string.h>
+    #include<type_traits>
 
     /**
     * @brief C++ Namespace and Type Deduction Macros
@@ -302,7 +303,7 @@ Otherwise, reallocates the buffer to match the current size exactly.
         (vec).data = NULL_PTR; \
         (vec).capacity = 0; \
     } else { \
-        TYPE_OF((vec).data) new_data = realloc((vec).data, (vec).size * sizeof(*(vec).data)); \
+        TYPE_OF((vec).data) new_data = (TYPE_OF((vec).data))CLIB_PREFIX realloc((vec).data, (vec).size * sizeof(*(vec).data)); \
         if (new_data) { \
             (vec).data = new_data; \
             (vec).capacity = (vec).size; \
@@ -508,7 +509,7 @@ static inline int private_vector_push_back_args_inline(void *vec_ptr, size_t ele
         if (new_capacity < VECTOR_GROW_CAPACITY((vec).capacity)) { \
             new_capacity = VECTOR_GROW_CAPACITY((vec).capacity); \
         } \
-        TYPE_OF((vec).data) new_data = realloc((vec).data, new_capacity * sizeof(*(vec).data)); \
+        TYPE_OF((vec).data) new_data = (TYPE_OF((vec).data))CLIB_PREFIX  realloc((vec).data, new_capacity * sizeof(*(vec).data)); \
         if (__builtin_expect(new_data != NULL_PTR, 1)) { \
             (vec).data = new_data; \
             (vec).capacity = new_capacity; \
