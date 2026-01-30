@@ -238,16 +238,14 @@ For more detailed code here => [`OpenGLDrawSquareWithVector`](https://github.com
 
 </details>
 
----
 
-**📖 API Reference DOCUMENTATION**  
- [See the full API documentation here!](API.md)  
+# **📖 API Reference DOCUMENTATION**  
+### [See the full API documentation here!](API.md)  
 Explore all vector macros and functions with examples and detailed descriptions.
 
----
 
-** FOR MORE  EXAMPLES**  
- [See practical vector usage and code samples here!](EXAMPLES.md)  
+## **FOR MORE  EXAMPLES**  
+### [See practical vector usage and code samples here!](EXAMPLES.md)  
 Explore real-world examples including 3D vector structs and string arrays with clean iteration and bulk operations.
 
 
