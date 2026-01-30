@@ -280,8 +280,9 @@ Automatically handles capacity reservation if the new size exceeds current capac
         vector_reserve(vec, new_size); \
     } \
     if ((new_size) > (vec).size) { \
+		TYPE_OF_VAL(*(vec).data) _fill_val = (def_val); \
         for (size_t i = (vec).size; i < (new_size); i++) { \
-            (vec).data[i] = (def_val); \
+            (vec).data[i] = _fill_val; \
         } \
     } \
     (vec).size = (new_size); \
