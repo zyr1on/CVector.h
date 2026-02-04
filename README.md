@@ -490,23 +490,63 @@ Explore real-world examples including 3D vector structs and string arrays with c
 [Header File!](include/vector.h)  
 
 
+# Benchmark Results: CVector vs std::vector (push_back)
 
-# Benchmark Results: CVector vs std::vector  
+This benchmark compares the performance of a custom C vector implementation (`CVector`) against C++'s standard library vector (`std::vector`) when pushing back **1,000,000 integer elements**. The test was repeated 5 times for each vector type, and the durations were measured using `std::chrono`. Below is a summary of the results:
 
-This benchmark compares the performance of a custom C vector implementation (`CVector`) against C++'s standard library vector (`std::vector`) when pushing back 1,000,000 integer elements. The test was repeated 5 times for each vector type, and the durations were measured using `std::chrono`. Below is a summary of the results:
+| push_back() | CVector (ms) | std::vector (ms) |
+| :---: | :---: | :---: |
+| 1 | 2.0348 | 5.9383 |
+| 2 | 1.9931 | 6.9766 |
+| 3 | 2.9904 | 5.9795 |
+| 4 | 1.9930 | 5.9806 |
+| 5 | 1.9932 | 5.9800 |
+| **Average** | **2.2009** | **6.1710** |
 
-| push_back()   | CVector (ms) | std::vector (ms) |
-|-------|--------------|------------------|
-| 1     | 2.0348       | 5.9383           |
-| 2     | 1.9931       | 6.9766           |
-| 3     | 2.9904       | 5.9795           |
-| 4     | 1.9930       | 5.9806           |
-| 5     | 1.9932       | 5.9800           |
-| **Average** | **2.2009** | **6.1710**         |
+- **Test Method**: Both vectors were tested by sequentially adding 1,000,000 integers using their respective `push_back` methods. Each test was repeated 5 times to reduce measurement noise.
 
 ---
 
-- **Test Method**: Both vectors were tested by sequentially adding 1,000,000 integers using their respective `push_back` methods. Each test was repeated 5 times to reduce measurement noise.
+### Analysis & Conclusion
+
+Based on the data above, the **CVector** implementation demonstrates a distinct performance advantage over the standard library:
+
+1.  **Speed Factor:** On average, `CVector` (2.20 ms) is approximately **2.8x faster** than `std::vector` (6.17 ms) for this specific integer insertion workload.
+2.  **Low Overhead:** The performance difference is attributed to the minimal overhead of the C implementation. While `std::vector` manages object construction, exception safety, and allocator traits, `CVector` likely utilizes raw memory operations (`realloc`/`memcpy`) which are highly optimized for simple types like integers.
+3.  **Consistency:** Both implementations showed high consistency. `CVector` maintained a steady ~1.99ms execution time (with a minor outlier in Round 3), while `std::vector` remained consistent around ~5.98ms (with a minor outlier in Round 2).
+
+---
+
+# Benchmark Results: CVector vs std::vector (emplace_back)
+
+This benchmark compares the performance of a custom C vector implementation (`CVector`) against C++'s standard library vector (`std::vector`) when adding **1,000,000 integer elements** using `emplace_back` (or equivalent push). The test was repeated 5 times for each vector type to ensure consistency, and the durations were measured using `std::chrono::high_resolution_clock`.
+
+### Test Environment
+* **Operation:** 1,000,000 insertions (Integers)
+* **Metric:** Time taken in milliseconds (ms)
+* **Lower is better**
+
+### Results Table
+
+| emplace_back() | CVector (ms) | std::vector (ms) |
+| :---: | :---: | :---: |
+| 1 | 3.7349 | 15.2253 |
+| 2 | 5.3095 | 12.9515 |
+| 3 | 6.1568 | 13.8686 |
+| 4 | 3.4498 | 12.0842 |
+| 5 | 5.9947 | 15.3231 |
+| **Average** | **4.9291** | **13.8905** |
+
+---
+
+### Analysis & Conclusion
+
+Based on the benchmark data above, the **CVector** implementation demonstrates a significant performance advantage over `std::vector` for raw integer insertion:
+
+1.  **Speed Factor:** On average, `CVector` (4.93 ms) is approximately **2.8x faster** than `std::vector` (13.89 ms) in this specific test case.
+2.  **Overhead:** The performance difference is likely due to the minimal overhead of `CVector`. While `std::vector` handles object construction/destruction, exception safety, and iterator debugging checks, the custom C implementation likely relies on raw memory manipulation (`realloc`/`memcpy`), which is faster but requires manual memory management.
+3.  **Consistency:** Both vectors showed some variance between runs (e.g., Round 4 was the fastest for both), which is typical due to OS scheduling and memory allocator states, but the performance gap remained consistent throughout all iterations.
+
 
 
 # Benchmark Results: CVector vs std::vector middle pos
@@ -529,16 +569,9 @@ This benchmark measures the performance of inserting elements into the **middle*
 > **Note:** Timings can be affected by system hardware, compiler, and OS. Always report your benchmark environment for reproducibility.
 
 
-## System Information
-
-- **CPU:** Intel Core i3-12100f @ 3.30 GHz 12M Cache, up to 4.30 GHz
-- **RAM:** 16 GB DDR4
-- **OS:** Windows 10 22H2
-- **Compiler:** mingw gcc ( for g++ use `-fpermissive`)
-
 Benchmark results may vary on different platforms.
 
-# COMPARE WITH C++ STL `std::vector<T> v;`
+# COMPARE WITH C++ STL  `std::vector<T> v;` 
 
 | Function                  | vector.h                        | std::vector                         |
 |---------------------------|----------------------------------|-------------------------------------|
