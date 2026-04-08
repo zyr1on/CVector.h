@@ -245,8 +245,15 @@ typedef struct {
 #define vector_bytesize(vec)   ((vec).size * sizeof(*(vec).data))
 #define vector_capacity(vec)   ((vec).capacity)
 #define vector_empty(vec)      ((vec).size == 0)
-#define vector_back(vec)       ((vec).data[(vec).size - 1])
-#define vector_front(vec)      ((vec).data[0])
+#define vector_back(vec) \
+    (((vec).magic == VECTOR_MAGIC_INIT && (vec).size > 0) ? \
+     (vec).data[(vec).size - 1] : \
+     (CLIB_PREFIX fprintf(stderr, "[x] Error: 'vector_back' called on empty/uninitialized vector at %s:%d\n", __FILE__, __LINE__), abort(), (vec).data[0]))
+
+#define vector_front(vec) \
+    (((vec).magic == VECTOR_MAGIC_INIT && (vec).size > 0) ? \
+     (vec).data[0] : \
+     (CLIB_PREFIX fprintf(stderr, "[x] Error: 'vector_front' called on empty/uninitialized vector at %s:%d\n", __FILE__, __LINE__), abort(), (vec).data[0]))
 
 /**
  * Removes the last element from the vector.
@@ -334,6 +341,10 @@ typedef struct {
     } \
     if ((new_size) > (vec).capacity) { \
         vector_reserve(vec, new_size); \
+        if (UNLIKELY((vec).capacity < (new_size))) { \
+            CLIB_PREFIX fprintf(stderr, "[x] Error: Memory allocation failed in 'vector_resize' at %s:%d\n", __FILE__, __LINE__); \
+            break; \
+        } \
     } \
     if ((new_size) > (vec).size) { \
         TYPE_OF_VAL(*(vec).data) _fill_val = (def_val); \
@@ -389,7 +400,7 @@ typedef struct {
  * @note Uses GNU statement expression ({...}) — GCC/Clang only.
  */
 #define vector_find_custom(vec, value, cmp_func) ({ \
-    int _result = -1; \
+    ptrdiff_t _result = -1; \
     if (UNLIKELY((vec).magic != VECTOR_MAGIC_INIT)) { \
         CLIB_PREFIX fprintf(stderr, "[x] Error: Vector not initialized before 'vector_find_custom' at %s:%d\n", __FILE__, __LINE__); \
     } else { \
@@ -397,15 +408,15 @@ typedef struct {
         size_t _sz = (vec).size; \
         size_t _i  = 0; \
         for (; _i + 3 < _sz; _i += 4) { \
-            if (cmp_func((vec).data[_i],   _search_val)) { _result = (int)_i;   break; } \
-            if (cmp_func((vec).data[_i+1], _search_val)) { _result = (int)(_i+1); break; } \
-            if (cmp_func((vec).data[_i+2], _search_val)) { _result = (int)(_i+2); break; } \
-            if (cmp_func((vec).data[_i+3], _search_val)) { _result = (int)(_i+3); break; } \
+            if (cmp_func((vec).data[_i],   _search_val)) { _result = (ptrdiff_t)_i;     break; } \
+            if (cmp_func((vec).data[_i+1], _search_val)) { _result = (ptrdiff_t)(_i+1); break; } \
+            if (cmp_func((vec).data[_i+2], _search_val)) { _result = (ptrdiff_t)(_i+2); break; } \
+            if (cmp_func((vec).data[_i+3], _search_val)) { _result = (ptrdiff_t)(_i+3); break; } \
         } \
         if (_result == -1) { \
             for (; _i < _sz; ++_i) { \
                 if (cmp_func((vec).data[_i], _search_val)) { \
-                    _result = (int)_i; \
+                    _result = (ptrdiff_t)_i; \
                     break; \
                 } \
             } \
@@ -423,7 +434,7 @@ typedef struct {
  * @note Uses GNU statement expression ({...}) — GCC/Clang only.
  */
 #define vector_find(vec, value) ({ \
-    int _result = -1; \
+    ptrdiff_t _result = -1; \
     if (UNLIKELY((vec).magic != VECTOR_MAGIC_INIT)) { \
         CLIB_PREFIX fprintf(stderr, "[x] Error: Vector not initialized before 'vector_find' at %s:%d\n", __FILE__, __LINE__); \
     } else { \
@@ -431,15 +442,15 @@ typedef struct {
         size_t _i  = 0; \
         size_t _sz = (vec).size; \
         for (; _i + 3 < _sz; _i += 4) { \
-            if ((vec).data[_i]   == _search_val) { _result = (int)_i;   break; } \
-            if ((vec).data[_i+1] == _search_val) { _result = (int)(_i+1); break; } \
-            if ((vec).data[_i+2] == _search_val) { _result = (int)(_i+2); break; } \
-            if ((vec).data[_i+3] == _search_val) { _result = (int)(_i+3); break; } \
+            if ((vec).data[_i]   == _search_val) { _result = (ptrdiff_t)_i;   break; } \
+            if ((vec).data[_i+1] == _search_val) { _result = (ptrdiff_t)(_i+1); break; } \
+            if ((vec).data[_i+2] == _search_val) { _result = (ptrdiff_t)(_i+2); break; } \
+            if ((vec).data[_i+3] == _search_val) { _result = (ptrdiff_t)(_i+3); break; } \
         } \
         if (_result == -1) { \
             for (; _i < _sz; ++_i) { \
                 if ((vec).data[_i] == _search_val) { \
-                    _result = (int)_i; \
+                    _result = (ptrdiff_t)_i; \
                     break; \
                 } \
             } \
@@ -626,15 +637,18 @@ static inline int private_vector_insert_args_inline(void *vec_ptr, size_t elemen
         CLIB_PREFIX fprintf(stderr, "[x] Error: Vector type size mismatch in 'vector_swap' at %s:%d\n", __FILE__, __LINE__); \
         break; \
     } \
-    TYPE_OF((vec1).data) _tmp_data     = (vec1).data; \
+    TYPE_OF((vec1).data) _tmp_data = (vec1).data; \
     (vec1).data     = (vec2).data; \
     (vec2).data     = _tmp_data; \
-    size_t _tmp_size     = (vec1).size; \
+    size_t _tmp_size = (vec1).size; \
     (vec1).size     = (vec2).size; \
     (vec2).size     = _tmp_size; \
-    size_t _tmp_cap      = (vec1).capacity; \
+    size_t _tmp_cap  = (vec1).capacity; \
     (vec1).capacity = (vec2).capacity; \
     (vec2).capacity = _tmp_cap; \
+    uint32_t _tmp_magic = (vec1).magic; \
+    (vec1).magic    = (vec2).magic; \
+    (vec2).magic    = _tmp_magic; \
 } while(0)
 
 #endif /* VECTOR_H */
