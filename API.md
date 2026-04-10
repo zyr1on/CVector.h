@@ -37,22 +37,28 @@ vector_insert(vec, position, value)          -> Inserts elements at a specific p
 vector_insert_range(vec, pos, arr, count)    -> Inserts a range of elements
 vector_insert_args(vec, pos, first, ...)     -> Inserts one or more elements at the specified position in the vector.
 
-int vector_at(vec, index)                    -> Returns the element at index. Bounds-checked (macro, element type).
 int vector_bytesize(vec)                     -> Returns total size in bytes of elements in the vector (macro, size_t).
 int vector_bytesize(vec)                     -> Returns total byte size of vector elements(macro,size_t).
+
 int vector_capacity(vec)                     -> Returns current allocated capacity (macro, size_t).
 int vector_empty(vec)                        -> Returns 1 if vector is empty, 0 otherwise (macro, int).
+
 int vector_find(vec, value)                  -> Returns index of first occurrence of value, or -1 if not found (macro, size_t).
 int vector_find_custom(vec, value, cmp_func) -> Returns index of first occurrence using custom comparator, or -1 if not found (macro, int).
 
+int vector_at(vec, index)                    -> Returns the element at index. Bounds-checked (macro, element type).
 vector_back(vec)                             -> Returns the last element (macro, element type).
 vector_front(vec)                            -> Returns the first element (macro, element type).
 vector_pop_back(vec)                         -> Removes the last element. (void, prints error if not initialized/empty).
+
 vector_clear(vec)                            -> Removes all elements but keeps memory allocated. (void, prints error if not initialized).
 vector_destroy(vec)                          -> Frees all memory and marks vector as destroyed. (void, prints error if already destroyed or not initialized).
+
 vector_reserve(vec, new_capacity)            -> Ensures capacity is at least new_capacity. (void, prints error on fail).
 vector_resize(vec, new_size, def_val)        -> Changes vector size, fills new elements with default_value. (void, prints error on fail).
+vector_resize_full(vec, new_size, def_val)   -> Changes vector size, fills ALL elements with def_val. (void, prints error on fail).
 vector_shrink_to_fit(vec)                    -> Reduces capacity to match size, freeing unused memory. (void, prints error if not initialized).
+
 vector_foreach(vec, item)                    -> Macro for iterating over elements; item is a pointer to each element.
 vector_swap(vec1, vec2)                      -> Swaps vector contents
 ```
