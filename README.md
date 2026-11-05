@@ -57,6 +57,20 @@ OUTPUT:
 First element: 10
 ```
 
+> [!WARNING]
+> Your editor may show errors (for example `expected expression` or
+> `expected ';' after do/while statement`) even though the code compiles
+> and runs fine. This is a clangd configuration problem, not a bug in
+> `vector.h`:
+>
+> - clangd treats `.h` files as **C++** by default, so `vector.h` gets
+>   parsed with C++ rules.
+> - Without a compile configuration, clangd may fall back to different
+>   flags (or an MSVC target on Windows) than your actual compiler.
+> - Old versions of this header used `typeof`, which is not a keyword in
+>   strict modes such as `-std=c11` / `-std=c17`. Make sure you are using
+>   the latest `vector.h` (it uses `__typeof__`, which works in every mode).
+
 ##  ⚠️ Important: Passing Vectors to Functions
 Since vector(T) expands to an anonymous struct, you cannot use it directly in function parameters (it will cause a type mismatch error).
 
