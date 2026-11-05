@@ -11,23 +11,33 @@
     @details
     - Type-generic: Instantiates vectors for any type via macros.
     - Dynamic: Grows and shrinks automatically as needed.
-    - Safety: Provides bounds checking in debug mode.
+    - Safety: Bounds-checked access (vector_at/front/back), initialization tracking,
+              overflow-checked growth. Checks are always on.
     - Modern: Includes handy iteration and batch operations.
 
     @warning
     - Always initialize your vector with `vector_init()` before use.
     - Always destroy your vector with `vector_destroy()` after use to avoid memory leaks.
-    - This header relies on C99 standard features (variadic macros, etc).
+    - Requires GCC or Clang: uses GNU statement expressions `({ ... })` and `__typeof__`.
+      Works with -std=gnu99/gnu11/c11/c17/c23 in C, and C++11 or later in C++.
+      MSVC is not supported.
+    - All macros may evaluate the `vec` argument more than once. Pass a plain
+      variable (or `*ptr`), not an expression with side effects.
+      Other arguments (value, index, size, ...) are evaluated exactly once.
 */
 
 #ifndef VECTOR_H
 #define VECTOR_H
 
+#if !defined(__GNUC__) && !defined(__clang__)
+    #error "vector.h requires GCC or Clang (GNU statement expressions and __typeof__)"
+#endif
+
 /**
  * @section Platform Abstraction Layer
  * -------------------------------------------------------------------------
- * This section provides a bridge between C (C99+) and Modern C++ compilers.
- * It handles differences in type deduction, namespace management, and 
+ * This section provides a bridge between C and Modern C++ compilers.
+ * It handles differences in type deduction, namespace management, and
  * strict type-checking rules.
  */
 
@@ -35,53 +45,43 @@
 /* C++ Compiler Configuration */
     #include <cstdio>
     #include <cstdlib>
+    #include <cstddef>
     #include <cstdint>
     #include <cstring>
     #include <type_traits>
     /**
     * @brief C++ Namespace and Type Deduction Macros
-    * C++ `decltype(*ptr)` returns a reference (T&), which cannot be used for 
-    * array declarations. TYPE_OF_VAL cleans the reference to get the raw type.
+    * C++ `decltype(*ptr)` returns a reference (T&), which cannot be used for
+    * array declarations. VECTOR_TYPE_OF_VAL cleans the reference to get the raw type.
     */
-    #define CLIB_PREFIX std::
-    #define TYPE_OF(x) decltype(x)
-    #define TYPE_OF_VAL(x) std::remove_reference<decltype(x)>::type
-    #define NULL_PTR nullptr
-#else 
+    #define VECTOR_STD               std::
+    #define VECTOR_TYPE_OF(x)        decltype(x)
+    #define VECTOR_TYPE_OF_VAL(x)    std::remove_reference<decltype(x)>::type
+    #define VECTOR_NULL              nullptr
+#else
 /* Standard C Compiler Configuration */
     #include <stdio.h>
     #include <stdlib.h>
+    #include <stddef.h>
     #include <stdint.h>
     #include <string.h>
     /**
-    * @brief C99 typeof Support
-    * In C, typeof handles both values and pointers without reference issues.
+    * @brief typeof Support
+    * `__typeof__` is available in every GCC/Clang C mode (unlike `typeof`,
+    * which needs -std=gnu* or C23).
     */
-    #define CLIB_PREFIX 
-    #define TYPE_OF(x) typeof(x)
-    #define TYPE_OF_VAL(x) typeof(x)	
-    #define NULL_PTR NULL
+    #define VECTOR_STD
+    #define VECTOR_TYPE_OF(x)        __typeof__(x)
+    #define VECTOR_TYPE_OF_VAL(x)    __typeof__(x)
+    #define VECTOR_NULL              NULL
 #endif
 
-/**
- * @section Compiler Portability
- * -------------------------------------------------------------------------
- * __builtin_expect is GCC/Clang specific and not available on MSVC.
- * LIKELY/UNLIKELY macros provide a portable abstraction.
- */
-#if defined(__GNUC__) || defined(__clang__)
-    #define LIKELY(x)               __builtin_expect(!!(x), 1)
-    #define UNLIKELY(x)             __builtin_expect(!!(x), 0)
-    #define VECTOR_UNREACHABLE()    __builtin_unreachable()
-#elif defined(_MSC_VER)
-    #define LIKELY(x)               (x)
-    #define UNLIKELY(x)             (x)
-    #define VECTOR_UNREACHABLE()    __assume(0)
-#else
-    #define LIKELY(x)               (x)
-    #define UNLIKELY(x)             (x)
-    #define VECTOR_UNREACHABLE()    ((void)0)
-#endif
+#define VECTOR_LIKELY(x)    __builtin_expect(!!(x), 1)
+#define VECTOR_UNLIKELY(x)  __builtin_expect(!!(x), 0)
+
+/* Internal: prints "[x] Error: <msg> at file:line" to stderr. */
+#define private_vector_error(msg) \
+    VECTOR_STD fprintf(stderr, "[x] Error: " msg " at %s:%d\n", __FILE__, __LINE__)
 
 /**
  * @section Compile-time Type Safety
@@ -96,7 +96,7 @@
 #ifdef __cplusplus
     #define VECTOR_ASSERT_TRIVIAL(vec) \
         static_assert( \
-            std::is_trivially_copyable<std::remove_pointer<TYPE_OF((vec).data)>::type>::value, \
+            std::is_trivially_copyable<std::remove_pointer<VECTOR_TYPE_OF((vec).data)>::type>::value, \
             "vector<T>: T must be trivially copyable — realloc is unsafe for types with constructors/destructors" \
         )
 #else
@@ -106,14 +106,16 @@
 
 /**
  * @brief Enforces identical element types between two vectors at compile time.
- * @note  In C, only element sizes are compared (same-size different types are not caught).
+ * @note  In C, element sizes are compared here; assigning the data pointers in
+ *        vector_swap additionally triggers an incompatible-pointer diagnostic
+ *        for different element types.
  */
 #ifdef __cplusplus
     #define VECTOR_ASSERT_SAME_TYPE(v1, v2) \
         static_assert( \
             std::is_same< \
-                typename std::remove_pointer<TYPE_OF((v1).data)>::type, \
-                typename std::remove_pointer<TYPE_OF((v2).data)>::type \
+                typename std::remove_pointer<VECTOR_TYPE_OF((v1).data)>::type, \
+                typename std::remove_pointer<VECTOR_TYPE_OF((v2).data)>::type \
             >::value, \
             "vector_swap: both vectors must store the same type" \
         )
@@ -131,16 +133,9 @@
 * -------------------------------------------------------------------------
 * Magic numbers used for initialization tracking and memory safety.
 */
- 
+
 #define VECTOR_MAGIC_INIT      0xDEADBEEF
 #define VECTOR_MAGIC_DESTROYED 0xFEEDFACE
-
-typedef struct {
-    void    *data;
-    size_t   size;
-    size_t   capacity;
-    uint32_t magic;
-} VectorBase;
 
 /**
  * @brief Declares an anonymous vector struct for the given type.
@@ -161,86 +156,117 @@ typedef struct {
 #define vector(type)        VECTOR_DEFINE(type)
 #define vector_is_valid(v)  ((v).magic == VECTOR_MAGIC_INIT)
 
-/** 
- * Initializes the vector structure. Includes a safety check against 
- * double-initialization to prevent memory leaks (orphaning the 'data' pointer)
- * if called on an already active vector.
+/* !! PRIVATE !! — Do not call directly.
+ * Grows a buffer so that it holds at least `needed` elements.
+ * Strategy: double the capacity (minimum 4) until it fits; if doubling would
+ * overflow, fall back to exactly `needed`.
+ * Returns the new buffer and writes the new capacity, or returns NULL
+ * (old buffer untouched) on overflow / allocation failure. */
+static inline void *private_vector_grow
+(
+    void *data, size_t elem_size,
+    size_t capacity, size_t needed,
+    size_t *out_capacity
+)
+{
+    size_t nc = capacity < 4 ? 4 : capacity;
+    while (nc < needed) {
+        if (nc > SIZE_MAX / 2) { nc = needed; break; }
+        nc <<= 1;
+    }
+    if (nc > SIZE_MAX / elem_size) {
+        nc = needed;
+        if (nc > SIZE_MAX / elem_size) return VECTOR_NULL;
+    }
+    void *nd = VECTOR_STD realloc(data, nc * elem_size);
+    if (nd != VECTOR_NULL) *out_capacity = nc;
+    return nd;
+}
+
+/**
+ * Initializes the vector structure.
  * @param vec The vector structure to initialize.
+ *
+ * @note The fields are NOT read before being written. A freshly declared
+ *       `vector(T) v;` holds garbage, and reading it (e.g. checking `magic`)
+ *       is undefined behaviour; if the garbage happened to equal
+ *       VECTOR_MAGIC_INIT, initialization would be skipped and `v` would keep
+ *       a stale data pointer. Calling vector_init on an already active vector
+ *       therefore leaks its buffer — call vector_destroy first.
  */
 #define vector_init(vec) do { \
     VECTOR_ASSERT_TRIVIAL(vec); \
-    if ((vec).magic == VECTOR_MAGIC_INIT) { \
-        CLIB_PREFIX fprintf(stderr, "[!] Warning: vector already initialized at %s:%d\n", __FILE__, __LINE__); \
-        break; \
-    } \
-    (vec).data     = NULL_PTR; \
+    (vec).data     = VECTOR_NULL; \
     (vec).size     = 0; \
     (vec).capacity = 0; \
     (vec).magic    = VECTOR_MAGIC_INIT; \
 } while(0)
 
-/* Growth strategy: double capacity, minimum 4 */
-#define VECTOR_GROW_CAPACITY(cap) ((cap) < 4 ? 4 : (cap) << 1)
-
-/** 
- * Appends an element to the end of the vector, automatically resizing the 
+/**
+ * Appends an element to the end of the vector, automatically resizing the
  * internal buffer if the capacity is exceeded.
  * @param vec   The vector structure to modify.
  * @param value The element to be added (must match the vector's type).
+ *              It may refer to the vector itself (e.g. vector_back(vec)).
  */
 #define vector_push_back(vec, value) do { \
-    if (UNLIKELY((vec).magic != VECTOR_MAGIC_INIT)) { \
-        CLIB_PREFIX fprintf(stderr, "[x] Error: vector not initialized before 'vector_push_back' at %s:%d\n", __FILE__, __LINE__); \
+    if (VECTOR_UNLIKELY((vec).magic != VECTOR_MAGIC_INIT)) { \
+        private_vector_error("vector not initialized before 'vector_push_back'"); \
         break; \
     } \
-    if (UNLIKELY((vec).size >= (vec).capacity)) { \
-        size_t _nc = VECTOR_GROW_CAPACITY((vec).capacity); \
-        TYPE_OF((vec).data) _nd = (TYPE_OF((vec).data))CLIB_PREFIX realloc((vec).data, _nc * sizeof(*(vec).data)); \
-        if (UNLIKELY(_nd == NULL_PTR)) { \
-            CLIB_PREFIX fprintf(stderr, "[x] Error: allocation failed in 'vector_push_back' at %s:%d\n", __FILE__, __LINE__); \
+    /* Evaluate value first: it may read the vector itself, \
+       which must happen before realloc and before size changes. */ \
+    VECTOR_TYPE_OF_VAL(*(vec).data) _vec_pb_val = (value); \
+    if (VECTOR_UNLIKELY((vec).size >= (vec).capacity)) { \
+        size_t _vec_pb_nc = 0; \
+        void *_vec_pb_nd = private_vector_grow((vec).data, sizeof(*(vec).data), \
+                                               (vec).capacity, (vec).size + 1, &_vec_pb_nc); \
+        if (VECTOR_UNLIKELY(_vec_pb_nd == VECTOR_NULL)) { \
+            private_vector_error("allocation failed in 'vector_push_back'"); \
             break; \
         } \
-        (vec).data     = _nd; \
-        (vec).capacity = _nc; \
+        (vec).data     = (VECTOR_TYPE_OF((vec).data))_vec_pb_nd; \
+        (vec).capacity = _vec_pb_nc; \
     } \
-    (vec).data[(vec).size++] = (value); \
+    (vec).data[(vec).size] = _vec_pb_val; \
+    (vec).size++; \
 } while(0)
 
-/** 
- * Returns a pointer to the next available slot in the vector, resizing memory 
- * if necessary. Allows for zero-copy construction of elements directly 
+/**
+ * Returns a pointer to the next available slot in the vector, resizing memory
+ * if necessary. Allows for zero-copy construction of elements directly
  * into the vector's buffer.
  * @param vec The vector structure to modify.
- * @return    A pointer to the newly reserved slot, or NULL_PTR on failure.
- *
- * @note Uses GNU statement expression ({...}) — supported by GCC and Clang.
- *       Not supported on MSVC. If MSVC support is needed, convert to inline function.
+ * @return    A pointer to the newly reserved slot, or NULL on failure.
  */
 #define private_vector_emplace_back_ptr(vec) ({ \
-    TYPE_OF_VAL((vec).data) _slot = NULL_PTR; \
-    if (UNLIKELY((vec).magic != VECTOR_MAGIC_INIT)) { \
-        CLIB_PREFIX fprintf(stderr, "[x] Error: vector not initialized before 'vector_emplace_back' at %s:%d\n", __FILE__, __LINE__); \
+    VECTOR_TYPE_OF_VAL((vec).data) _vec_ep_slot = VECTOR_NULL; \
+    if (VECTOR_UNLIKELY((vec).magic != VECTOR_MAGIC_INIT)) { \
+        private_vector_error("vector not initialized before 'vector_emplace_back'"); \
     } else { \
-        if (UNLIKELY((vec).size >= (vec).capacity)) { \
-            size_t _nc = VECTOR_GROW_CAPACITY((vec).capacity); \
-            TYPE_OF((vec).data) _nd = (TYPE_OF((vec).data))CLIB_PREFIX realloc((vec).data, _nc * sizeof(*(vec).data)); \
-            if (LIKELY(_nd != NULL_PTR)) { \
-                (vec).data     = _nd; \
-                (vec).capacity = _nc; \
+        int _vec_ep_ok = 1; \
+        if (VECTOR_UNLIKELY((vec).size >= (vec).capacity)) { \
+            size_t _vec_ep_nc = 0; \
+            void *_vec_ep_nd = private_vector_grow((vec).data, sizeof(*(vec).data), \
+                                                   (vec).capacity, (vec).size + 1, &_vec_ep_nc); \
+            if (VECTOR_LIKELY(_vec_ep_nd != VECTOR_NULL)) { \
+                (vec).data     = (VECTOR_TYPE_OF((vec).data))_vec_ep_nd; \
+                (vec).capacity = _vec_ep_nc; \
             } else { \
-                CLIB_PREFIX fprintf(stderr, "[x] Error: allocation failed in 'vector_emplace_back' at %s:%d\n", __FILE__, __LINE__); \
+                private_vector_error("allocation failed in 'vector_emplace_back'"); \
+                _vec_ep_ok = 0; \
             } \
         } \
-        if ((vec).size < (vec).capacity) \
-            _slot = &(vec).data[(vec).size++]; \
+        if (_vec_ep_ok) \
+            _vec_ep_slot = &(vec).data[(vec).size++]; \
     } \
-    _slot; \
+    _vec_ep_slot; \
 })
 
 /**
  * Constructs an object in-place at the end of the vector.
  *
- * @note C99/C11: Supports designated initializers in any order:
+ * @note C: Supports designated initializers in any order:
  *       vector_emplace_back(vec, .y = 1.0f, .x = 2.0f);
  *
  * @note C++20: Designated initializers are supported but MUST follow
@@ -251,15 +277,16 @@ typedef struct {
  * @note C++ before C++20: Designated initializers are NOT supported at all.
  *       Use positional initialization: vector_emplace_back(vec, 2.0f, 1.0f);
  *
- * Replaces C compound literal (Type){...} with portable `Type _tmp = {...}` 
+ * Uses `Type _tmp = {...}` instead of a C compound literal (Type){...},
  * which works in both C and C++.
  */
 #define vector_emplace_back(vec, ...) do { \
-    TYPE_OF_VAL(*(vec).data) *_slot = private_vector_emplace_back_ptr(vec); \
-    if (_slot) { \
-        TYPE_OF_VAL(*(vec).data) _tmp = { __VA_ARGS__ }; \
-        *_slot = _tmp; \
-    } \
+    /* Build the element before reserving the slot, so arguments that read \
+       the vector see its state before realloc / size++. */ \
+    VECTOR_TYPE_OF_VAL(*(vec).data) _vec_eb_tmp = { __VA_ARGS__ }; \
+    VECTOR_TYPE_OF_VAL(*(vec).data) *_vec_eb_slot = private_vector_emplace_back_ptr(vec); \
+    if (_vec_eb_slot) \
+        *_vec_eb_slot = _vec_eb_tmp; \
 } while(0)
 
 #define vector_size(vec)        ((vec).size)
@@ -269,41 +296,54 @@ typedef struct {
 
 /**
  * @brief Bounds-checked element access. Aborts on out-of-bounds or uninitialized vector.
+ * @note  Returns an lvalue: `vector_at(v, i) = x;` and `&vector_at(v, i)` both work.
  */
-#define vector_at(vec, index) \
-    (((vec).magic == VECTOR_MAGIC_INIT && (size_t)(index) < (vec).size) ? \
-     (vec).data[(index)] : \
-     (CLIB_PREFIX fprintf(stderr, "[x] Error: out-of-bounds access at %s:%d\n", __FILE__, __LINE__), \
-      abort(), VECTOR_UNREACHABLE(), (vec).data[0]))
+#define vector_at(vec, index) (*({ \
+    size_t _vec_at_i = (size_t)(index); \
+    if (VECTOR_UNLIKELY((vec).magic != VECTOR_MAGIC_INIT)) { \
+        private_vector_error("vector not initialized before 'vector_at'"); \
+        VECTOR_STD abort(); \
+    } \
+    if (VECTOR_UNLIKELY(_vec_at_i >= (vec).size)) { \
+        VECTOR_STD fprintf(stderr, "[x] Error: 'vector_at' index %llu out of bounds (size %llu) at %s:%d\n", \
+                           (unsigned long long)_vec_at_i, (unsigned long long)(vec).size, __FILE__, __LINE__); \
+        VECTOR_STD abort(); \
+    } \
+    &(vec).data[_vec_at_i]; \
+}))
 
 /**
- * @brief Returns the last element. Aborts on empty or uninitialized vector.
+ * @brief Returns the last element (lvalue). Aborts on empty or uninitialized vector.
  */
-#define vector_back(vec) \
-    (((vec).magic == VECTOR_MAGIC_INIT && (vec).size > 0) ? \
-     (vec).data[(vec).size - 1] : \
-     (CLIB_PREFIX fprintf(stderr, "[x] Error: 'vector_back' on empty/uninitialized vector at %s:%d\n", __FILE__, __LINE__), \
-      abort(), VECTOR_UNREACHABLE(), (vec).data[0]))
+#define vector_back(vec) (*({ \
+    if (VECTOR_UNLIKELY((vec).magic != VECTOR_MAGIC_INIT || (vec).size == 0)) { \
+        private_vector_error("'vector_back' on empty/uninitialized vector"); \
+        VECTOR_STD abort(); \
+    } \
+    &(vec).data[(vec).size - 1]; \
+}))
 
 /**
- * @brief Returns the first element. Aborts on empty or uninitialized vector.
+ * @brief Returns the first element (lvalue). Aborts on empty or uninitialized vector.
  */
-#define vector_front(vec) \
-    (((vec).magic == VECTOR_MAGIC_INIT && (vec).size > 0) ? \
-     (vec).data[0] : \
-     (CLIB_PREFIX fprintf(stderr, "[x] Error: 'vector_front' on empty/uninitialized vector at %s:%d\n", __FILE__, __LINE__), \
-      abort(), VECTOR_UNREACHABLE(), (vec).data[0]))
+#define vector_front(vec) (*({ \
+    if (VECTOR_UNLIKELY((vec).magic != VECTOR_MAGIC_INIT || (vec).size == 0)) { \
+        private_vector_error("'vector_front' on empty/uninitialized vector"); \
+        VECTOR_STD abort(); \
+    } \
+    &(vec).data[0]; \
+}))
 
 /**
  * Removes the last element from the vector.
  */
 #define vector_pop_back(vec) do { \
-    if (UNLIKELY((vec).magic != VECTOR_MAGIC_INIT)) { \
-        CLIB_PREFIX fprintf(stderr, "[x] Error: vector not initialized before 'vector_pop_back' at %s:%d\n", __FILE__, __LINE__); \
+    if (VECTOR_UNLIKELY((vec).magic != VECTOR_MAGIC_INIT)) { \
+        private_vector_error("vector not initialized before 'vector_pop_back'"); \
         break; \
     } \
-    if (UNLIKELY((vec).size == 0)) { \
-        CLIB_PREFIX fprintf(stderr, "[x] Error: 'vector_pop_back' on empty vector at %s:%d\n", __FILE__, __LINE__); \
+    if (VECTOR_UNLIKELY((vec).size == 0)) { \
+        private_vector_error("'vector_pop_back' on empty vector"); \
         break; \
     } \
     (vec).size--; \
@@ -313,58 +353,61 @@ typedef struct {
  * Resets vector size to 0 without freeing memory.
  */
 #define vector_clear(vec) do { \
-    if (UNLIKELY((vec).magic != VECTOR_MAGIC_INIT)) { \
-        CLIB_PREFIX fprintf(stderr, "[x] Error: vector not initialized before 'vector_clear' at %s:%d\n", __FILE__, __LINE__); \
+    if (VECTOR_UNLIKELY((vec).magic != VECTOR_MAGIC_INIT)) { \
+        private_vector_error("vector not initialized before 'vector_clear'"); \
         break; \
     } \
     (vec).size = 0; \
 } while(0)
 
-/** 
- * Deallocates the vector's underlying memory buffer and resets its state. 
+/**
+ * Deallocates the vector's underlying memory buffer and resets its state.
  * Implements safeguards against double-free and uninitialized destroy.
- * @param vec The vector structure to destroy. 
+ * A destroyed vector may be initialized again with vector_init.
+ * @param vec The vector structure to destroy.
  */
 #define vector_destroy(vec) do { \
     if ((vec).magic == VECTOR_MAGIC_DESTROYED) { \
-        CLIB_PREFIX fprintf(stderr, "[x] Error: vector already destroyed at %s:%d\n", __FILE__, __LINE__); \
+        private_vector_error("vector already destroyed"); \
         break; \
     } \
     if ((vec).magic != VECTOR_MAGIC_INIT) { \
-        CLIB_PREFIX fprintf(stderr, "[x] Error: vector not initialized before destroy at %s:%d\n", __FILE__, __LINE__); \
+        private_vector_error("vector not initialized before destroy"); \
         break; \
     } \
-    free((vec).data); \
-    (vec).data     = NULL_PTR; \
+    VECTOR_STD free((vec).data); \
+    (vec).data     = VECTOR_NULL; \
     (vec).size     = 0; \
     (vec).capacity = 0; \
     (vec).magic    = VECTOR_MAGIC_DESTROYED; \
 } while(0)
 
-/** 
- * Reserves capacity for at least new_capacity elements.
+/**
+ * Reserves capacity for at least new_capacity elements (minimum 4).
  * No-op if current capacity already satisfies the request.
- *
- * @note FIX: Previously used new_capacity in realloc but aligned_capacity
- *       in the assignment — these are now consistent.
  */
 #define vector_reserve(vec, new_capacity) do { \
-    if (UNLIKELY((vec).magic != VECTOR_MAGIC_INIT)) { \
-        CLIB_PREFIX fprintf(stderr, "[x] Error: vector not initialized before 'vector_reserve' at %s:%d\n", __FILE__, __LINE__); \
+    if (VECTOR_UNLIKELY((vec).magic != VECTOR_MAGIC_INIT)) { \
+        private_vector_error("vector not initialized before 'vector_reserve'"); \
         break; \
     } \
-    if ((new_capacity) <= (vec).capacity) break; \
-    size_t _cap = (new_capacity) < 4 ? 4 : (size_t)(new_capacity); \
-    TYPE_OF((vec).data) _nd = (TYPE_OF((vec).data))CLIB_PREFIX realloc((vec).data, _cap * sizeof(*(vec).data)); \
-    if (LIKELY(_nd != NULL_PTR)) { \
-        (vec).data     = _nd; \
-        (vec).capacity = _cap; \
+    size_t _vec_rv_cap = (size_t)(new_capacity); \
+    if (_vec_rv_cap <= (vec).capacity) break; \
+    if (_vec_rv_cap < 4) _vec_rv_cap = 4; \
+    if (VECTOR_UNLIKELY(_vec_rv_cap > SIZE_MAX / sizeof(*(vec).data))) { \
+        private_vector_error("requested capacity too large in 'vector_reserve'"); \
+        break; \
+    } \
+    void *_vec_rv_nd = VECTOR_STD realloc((vec).data, _vec_rv_cap * sizeof(*(vec).data)); \
+    if (VECTOR_LIKELY(_vec_rv_nd != VECTOR_NULL)) { \
+        (vec).data     = (VECTOR_TYPE_OF((vec).data))_vec_rv_nd; \
+        (vec).capacity = _vec_rv_cap; \
     } else { \
-        CLIB_PREFIX fprintf(stderr, "[x] Error: allocation failed in 'vector_reserve' at %s:%d\n", __FILE__, __LINE__); \
+        private_vector_error("allocation failed in 'vector_reserve'"); \
     } \
 } while(0)
 
-/** 
+/**
  * Resizes the vector to contain new_size elements.
  * Expands with def_val or truncates as needed.
  * @param vec      The vector structure to modify.
@@ -372,22 +415,19 @@ typedef struct {
  * @param def_val  Value to fill new slots with (if expanding).
  */
 #define vector_resize(vec, new_size, def_val) do { \
-    if (UNLIKELY((vec).magic != VECTOR_MAGIC_INIT)) { \
-        CLIB_PREFIX fprintf(stderr, \
-        "[x] Error: vector not initialized before 'vector_resize' at %s:%d\n", \
-        __FILE__, __LINE__); \
+    if (VECTOR_UNLIKELY((vec).magic != VECTOR_MAGIC_INIT)) { \
+        private_vector_error("vector not initialized before 'vector_resize'"); \
         break; \
     } \
-    if ((size_t)(new_size) > (vec).capacity) { \
-        vector_reserve(vec, new_size); \
-    if (UNLIKELY((vec).capacity < (size_t)(new_size))) break; \
+    size_t _vec_rs_n = (size_t)(new_size); \
+    VECTOR_TYPE_OF_VAL(*(vec).data) _vec_rs_fv = (def_val); \
+    if (_vec_rs_n > (vec).capacity) { \
+        vector_reserve(vec, _vec_rs_n); \
+        if (VECTOR_UNLIKELY((vec).capacity < _vec_rs_n)) break; \
     } \
-    if ((size_t)(new_size) > (vec).size) { \
-        TYPE_OF_VAL(*(vec).data) _fv = (def_val); \
-    for (size_t _i = (vec).size; _i < (size_t)(new_size); _i++) \
-        (vec).data[_i] = _fv; \
-    } \
-    (vec).size = (size_t)(new_size); \
+    for (size_t _vec_rs_i = (vec).size; _vec_rs_i < _vec_rs_n; _vec_rs_i++) \
+        (vec).data[_vec_rs_i] = _vec_rs_fv; \
+    (vec).size = _vec_rs_n; \
 } while(0)
 
 
@@ -400,296 +440,234 @@ typedef struct {
  *        so existing data is not preserved.
  */
 #define vector_resize_full(vec, new_size, def_val) do { \
-    if (UNLIKELY((vec).magic != VECTOR_MAGIC_INIT)) { \
-        CLIB_PREFIX fprintf(stderr, \
-            "[x] Error: vector not initialized before 'vector_resize_full' at %s:%d\n", \
-            __FILE__, __LINE__); \
+    if (VECTOR_UNLIKELY((vec).magic != VECTOR_MAGIC_INIT)) { \
+        private_vector_error("vector not initialized before 'vector_resize_full'"); \
         break; \
     } \
-    if ((size_t)(new_size) > (vec).capacity) { \
-        vector_reserve(vec, new_size); \
-        if (UNLIKELY((vec).capacity < (size_t)(new_size))) break; \
+    size_t _vec_rf_n = (size_t)(new_size); \
+    VECTOR_TYPE_OF_VAL(*(vec).data) _vec_rf_fv = (def_val); \
+    if (_vec_rf_n > (vec).capacity) { \
+        vector_reserve(vec, _vec_rf_n); \
+        if (VECTOR_UNLIKELY((vec).capacity < _vec_rf_n)) break; \
     } \
-    TYPE_OF_VAL(*(vec).data) _fv = (def_val); \
-    for (size_t _i = 0; _i < (size_t)(new_size); _i++) \
-        (vec).data[_i] = _fv; \
-    (vec).size = (size_t)(new_size); \
+    for (size_t _vec_rf_i = 0; _vec_rf_i < _vec_rf_n; _vec_rf_i++) \
+        (vec).data[_vec_rf_i] = _vec_rf_fv; \
+    (vec).size = _vec_rf_n; \
 } while(0)
 
 
-/** 
+/**
  * Shrinks the internal buffer to match the current size exactly.
  * If the vector is empty, fully deallocates the buffer.
  */
 #define vector_shrink_to_fit(vec) do { \
-    if (UNLIKELY((vec).magic != VECTOR_MAGIC_INIT)) { \
-        CLIB_PREFIX fprintf(stderr, "[x] Error: vector not initialized before 'vector_shrink_to_fit' at %s:%d\n", __FILE__, __LINE__); \
+    if (VECTOR_UNLIKELY((vec).magic != VECTOR_MAGIC_INIT)) { \
+        private_vector_error("vector not initialized before 'vector_shrink_to_fit'"); \
         break; \
     } \
     if ((vec).size == (vec).capacity) break; \
     if ((vec).size == 0) { \
-        free((vec).data); \
-        (vec).data     = NULL_PTR; \
+        VECTOR_STD free((vec).data); \
+        (vec).data     = VECTOR_NULL; \
         (vec).capacity = 0; \
     } else { \
-        TYPE_OF((vec).data) _nd = (TYPE_OF((vec).data))CLIB_PREFIX realloc((vec).data, (vec).size * sizeof(*(vec).data)); \
-        if (LIKELY(_nd != NULL_PTR)) { \
-            (vec).data     = _nd; \
+        void *_vec_sf_nd = VECTOR_STD realloc((vec).data, (vec).size * sizeof(*(vec).data)); \
+        if (VECTOR_LIKELY(_vec_sf_nd != VECTOR_NULL)) { \
+            (vec).data     = (VECTOR_TYPE_OF((vec).data))_vec_sf_nd; \
             (vec).capacity = (vec).size; \
         } \
     } \
 } while(0)
 
-/** 
+/**
  * Iterates over each element in the vector using a pointer.
- * @warning Do NOT modify vector size (push/resize) inside this loop.
+ * @warning Do NOT modify vector size (push/resize/pop) inside this loop.
  * @param vec  The vector to iterate over.
  * @param item Iterator pointer variable name.
  */
 #define vector_foreach(vec, item) \
-    for (TYPE_OF_VAL(*(vec).data) *item = (vec).data; \
-         item < (vec).data + (vec).size; \
+    for (VECTOR_TYPE_OF_VAL(*(vec).data) *item = (vec).data, \
+             *item##_vec_end = (item != VECTOR_NULL) ? item + (vec).size : item; \
+         item != item##_vec_end; \
          ++item)
 
-/** 
+/**
  * Searches using a custom comparison predicate.
  * Optimized with 4-step loop unrolling.
  * @param vec      The vector to search.
  * @param value    The target value to find.
- * @param cmp_func Comparison function: cmp_func(item, value) -> nonzero if match.
- * @return Index of first match, or -1 if not found.
- *
- * @note Uses GNU statement expression ({...}) — GCC/Clang only.
+ * @param cmp_func Comparison function: cmp_func(element, value) -> nonzero if match.
+ *                 Both arguments are passed by value.
+ * @return Index of first match (ptrdiff_t), or -1 if not found.
  */
 #define vector_find_custom(vec, value, cmp_func) ({ \
-    ptrdiff_t _result = -1; \
-    if (UNLIKELY((vec).magic != VECTOR_MAGIC_INIT)) { \
-        CLIB_PREFIX fprintf(stderr, "[x] Error: Vector not initialized before 'vector_find_custom' at %s:%d\n", __FILE__, __LINE__); \
+    ptrdiff_t _vec_fc_res = -1; \
+    if (VECTOR_UNLIKELY((vec).magic != VECTOR_MAGIC_INIT)) { \
+        private_vector_error("vector not initialized before 'vector_find_custom'"); \
     } else { \
-        TYPE_OF_VAL(*(vec).data) _search_val = (value); \
-        size_t _sz = (vec).size; \
-        size_t _i  = 0; \
-        for (; _i + 3 < _sz; _i += 4) { \
-            if (cmp_func((vec).data[_i],   _search_val)) { _result = (ptrdiff_t)_i;     break; } \
-            if (cmp_func((vec).data[_i+1], _search_val)) { _result = (ptrdiff_t)(_i+1); break; } \
-            if (cmp_func((vec).data[_i+2], _search_val)) { _result = (ptrdiff_t)(_i+2); break; } \
-            if (cmp_func((vec).data[_i+3], _search_val)) { _result = (ptrdiff_t)(_i+3); break; } \
+        VECTOR_TYPE_OF_VAL(*(vec).data) _vec_fc_val = (value); \
+        size_t _vec_fc_sz = (vec).size; \
+        size_t _vec_fc_i  = 0; \
+        for (; _vec_fc_i + 3 < _vec_fc_sz; _vec_fc_i += 4) { \
+            if (cmp_func((vec).data[_vec_fc_i],   _vec_fc_val)) { _vec_fc_res = (ptrdiff_t)_vec_fc_i;     break; } \
+            if (cmp_func((vec).data[_vec_fc_i+1], _vec_fc_val)) { _vec_fc_res = (ptrdiff_t)(_vec_fc_i+1); break; } \
+            if (cmp_func((vec).data[_vec_fc_i+2], _vec_fc_val)) { _vec_fc_res = (ptrdiff_t)(_vec_fc_i+2); break; } \
+            if (cmp_func((vec).data[_vec_fc_i+3], _vec_fc_val)) { _vec_fc_res = (ptrdiff_t)(_vec_fc_i+3); break; } \
         } \
-        if (_result == -1) { \
-            for (; _i < _sz; ++_i) { \
-                if (cmp_func((vec).data[_i], _search_val)) { \
-                    _result = (ptrdiff_t)_i; \
+        if (_vec_fc_res == -1) { \
+            for (; _vec_fc_i < _vec_fc_sz; ++_vec_fc_i) { \
+                if (cmp_func((vec).data[_vec_fc_i], _vec_fc_val)) { \
+                    _vec_fc_res = (ptrdiff_t)_vec_fc_i; \
                     break; \
                 } \
             } \
         } \
     } \
-    _result; \
+    _vec_fc_res; \
 })
 
-/** 
+/**
  * Searches using == operator. Optimized with 4-step loop unrolling.
  * @note Only valid for scalar types (int, float, pointer, enum).
  *       Do NOT use with structs or strings — use vector_find_custom instead.
- * @return Index of first match, or -1 if not found.
- *
- * @note Uses GNU statement expression ({...}) — GCC/Clang only.
+ * @return Index of first match (ptrdiff_t), or -1 if not found.
  */
 #define vector_find(vec, value) ({ \
-    ptrdiff_t _result = -1; \
-    if (UNLIKELY((vec).magic != VECTOR_MAGIC_INIT)) { \
-        CLIB_PREFIX fprintf(stderr, "[x] Error: Vector not initialized before 'vector_find' at %s:%d\n", __FILE__, __LINE__); \
+    ptrdiff_t _vec_fd_res = -1; \
+    if (VECTOR_UNLIKELY((vec).magic != VECTOR_MAGIC_INIT)) { \
+        private_vector_error("vector not initialized before 'vector_find'"); \
     } else { \
-        TYPE_OF_VAL(*(vec).data) _search_val = (value); \
-        size_t _i  = 0; \
-        size_t _sz = (vec).size; \
-        for (; _i + 3 < _sz; _i += 4) { \
-            if ((vec).data[_i]   == _search_val) { _result = (ptrdiff_t)_i;   break; } \
-            if ((vec).data[_i+1] == _search_val) { _result = (ptrdiff_t)(_i+1); break; } \
-            if ((vec).data[_i+2] == _search_val) { _result = (ptrdiff_t)(_i+2); break; } \
-            if ((vec).data[_i+3] == _search_val) { _result = (ptrdiff_t)(_i+3); break; } \
+        VECTOR_TYPE_OF_VAL(*(vec).data) _vec_fd_val = (value); \
+        size_t _vec_fd_i  = 0; \
+        size_t _vec_fd_sz = (vec).size; \
+        for (; _vec_fd_i + 3 < _vec_fd_sz; _vec_fd_i += 4) { \
+            if ((vec).data[_vec_fd_i]   == _vec_fd_val) { _vec_fd_res = (ptrdiff_t)_vec_fd_i;     break; } \
+            if ((vec).data[_vec_fd_i+1] == _vec_fd_val) { _vec_fd_res = (ptrdiff_t)(_vec_fd_i+1); break; } \
+            if ((vec).data[_vec_fd_i+2] == _vec_fd_val) { _vec_fd_res = (ptrdiff_t)(_vec_fd_i+2); break; } \
+            if ((vec).data[_vec_fd_i+3] == _vec_fd_val) { _vec_fd_res = (ptrdiff_t)(_vec_fd_i+3); break; } \
         } \
-        if (_result == -1) { \
-            for (; _i < _sz; ++_i) { \
-                if ((vec).data[_i] == _search_val) { \
-                    _result = (ptrdiff_t)_i; \
+        if (_vec_fd_res == -1) { \
+            for (; _vec_fd_i < _vec_fd_sz; ++_vec_fd_i) { \
+                if ((vec).data[_vec_fd_i] == _vec_fd_val) { \
+                    _vec_fd_res = (ptrdiff_t)_vec_fd_i; \
                     break; \
                 } \
             } \
         } \
     } \
-    _result; \
+    _vec_fd_res; \
 })
 
-/* !! PRIVATE !! — Do not call directly */
-static inline int private_vector_push_back_args_inline
-(
-    void *vec_ptr, size_t elem_size,
-    const void *elems, size_t count
-) 
+/* !! PRIVATE !! — Do not call directly.
+ * Inserts `count` elements from `src` at position `pos`.
+ * `fname` is a string literal used in error messages.
+ * `src` must have the vector's element type and must not point into the vector. */
+#define private_vector_insert_n(vec, pos, src, count, fname) do { \
+    if (VECTOR_UNLIKELY((vec).magic != VECTOR_MAGIC_INIT)) { \
+        private_vector_error("vector not initialized before '" fname "'"); \
+        break; \
+    } \
+    const VECTOR_TYPE_OF_VAL(*(vec).data) *_vec_in_src = (src); \
+    size_t _vec_in_pos = (size_t)(pos); \
+    size_t _vec_in_cnt = (size_t)(count); \
+    if (VECTOR_UNLIKELY(_vec_in_pos > (vec).size)) { \
+        private_vector_error("insert position out of bounds in '" fname "'"); \
+        break; \
+    } \
+    if (_vec_in_cnt == 0) break; \
+    if (VECTOR_UNLIKELY(_vec_in_src == VECTOR_NULL)) { \
+        private_vector_error("source array is NULL in '" fname "'"); \
+        break; \
+    } \
+    if (VECTOR_UNLIKELY((vec).data != VECTOR_NULL && \
+            (uintptr_t)_vec_in_src >= (uintptr_t)(vec).data && \
+            (uintptr_t)_vec_in_src <  (uintptr_t)((vec).data + (vec).size))) { \
+        private_vector_error("source array points into the vector itself in '" fname "'"); \
+        break; \
+    } \
+    if (VECTOR_UNLIKELY(_vec_in_cnt > SIZE_MAX - (vec).size)) { \
+        private_vector_error("size overflow in '" fname "'"); \
+        break; \
+    } \
+    size_t _vec_in_ns = (vec).size + _vec_in_cnt; \
+    if (_vec_in_ns > (vec).capacity) { \
+        size_t _vec_in_nc = 0; \
+        void *_vec_in_nd = private_vector_grow((vec).data, sizeof(*(vec).data), \
+                                               (vec).capacity, _vec_in_ns, &_vec_in_nc); \
+        if (VECTOR_UNLIKELY(_vec_in_nd == VECTOR_NULL)) { \
+            private_vector_error("allocation failed in '" fname "'"); \
+            break; \
+        } \
+        (vec).data     = (VECTOR_TYPE_OF((vec).data))_vec_in_nd; \
+        (vec).capacity = _vec_in_nc; \
+    } \
+    if (_vec_in_pos < (vec).size) \
+        VECTOR_STD memmove(&(vec).data[_vec_in_pos + _vec_in_cnt], &(vec).data[_vec_in_pos], \
+                           ((vec).size - _vec_in_pos) * sizeof(*(vec).data)); \
+    VECTOR_STD memcpy(&(vec).data[_vec_in_pos], _vec_in_src, _vec_in_cnt * sizeof(*(vec).data)); \
+    (vec).size = _vec_in_ns; \
+} while(0)
 
-{
-    VectorBase *vec = (VectorBase *)vec_ptr;
-    if (UNLIKELY(vec->magic != VECTOR_MAGIC_INIT)) return -1;
-    size_t new_size = vec->size + count;
-    if (UNLIKELY(new_size > vec->capacity)) {
-        size_t nc = vec->capacity == 0 ? (count < 4 ? 4 : count) : vec->capacity;
-        while (nc < new_size) nc <<= 1;
-        void *nd = CLIB_PREFIX realloc(vec->data, nc * elem_size);
-        if (UNLIKELY(nd == NULL_PTR)) return -1;
-        vec->data     = nd;
-        vec->capacity = nc;
-    }
-    memcpy((char *)vec->data + vec->size * elem_size, elems, count * elem_size);
-    vec->size = new_size;
-    return 0;
-}
-
-/** 
+/**
  * Appends multiple elements to the vector in a single operation.
  * @note Efficient for batch updates: single resize check, bulk memcpy.
  * @param vec The vector structure to modify.
  * @param ... Comma-separated values matching the vector's element type.
  */
 #define vector_push_back_args(vec, ...) do { \
-    TYPE_OF_VAL(*(vec).data) _tmp[] = { __VA_ARGS__ }; \
-    if (private_vector_push_back_args_inline(&(vec), sizeof(*(vec).data), _tmp, \
-                                             sizeof(_tmp) / sizeof(_tmp[0])) != 0) { \
-        CLIB_PREFIX fprintf(stderr, "[x] Error: 'vector_push_back_args' failed at %s:%d\n", __FILE__, __LINE__); \
-    } \
+    VECTOR_TYPE_OF_VAL(*(vec).data) _vec_pa_tmp[] = { __VA_ARGS__ }; \
+    private_vector_insert_n(vec, (vec).size, _vec_pa_tmp, \
+                            sizeof(_vec_pa_tmp) / sizeof(_vec_pa_tmp[0]), "vector_push_back_args"); \
 } while(0)
 
-/** 
+/**
  * Inserts value at position, shifting subsequent elements right.
  * @note O(N) complexity due to memmove. Use sparingly on large vectors.
  * @param vec      The vector to modify.
  * @param position Insert index (0 to size).
- * @param value    Element to insert.
+ * @param value    Element to insert. It may refer to an element of this vector.
  */
 #define vector_insert(vec, position, value) do { \
-    if (UNLIKELY((vec).magic != VECTOR_MAGIC_INIT)) { \
-        CLIB_PREFIX fprintf(stderr, "[x] Error: vector not initialized before 'vector_insert' at %s:%d\n", __FILE__, __LINE__); \
-        break; \
-    } \
-    size_t _pos = (size_t)(position); \
-    if (UNLIKELY(_pos > (vec).size)) { \
-        CLIB_PREFIX fprintf(stderr, "[x] Error: insert position out of bounds in 'vector_insert' at %s:%d\n", __FILE__, __LINE__); \
-        break; \
-    } \
-    if (UNLIKELY((vec).size >= (vec).capacity)) { \
-        size_t _nc = VECTOR_GROW_CAPACITY((vec).capacity); \
-        TYPE_OF((vec).data) _nd = (TYPE_OF((vec).data))CLIB_PREFIX realloc((vec).data, _nc * sizeof(*(vec).data)); \
-        if (UNLIKELY(_nd == NULL_PTR)) { \
-            CLIB_PREFIX fprintf(stderr, "[x] Error: allocation failed in 'vector_insert' at %s:%d\n", __FILE__, __LINE__); \
-            break; \
-        } \
-        (vec).data     = _nd; \
-        (vec).capacity = _nc; \
-    } \
-    if (_pos < (vec).size) \
-        memmove(&(vec).data[_pos + 1], &(vec).data[_pos], ((vec).size - _pos) * sizeof(*(vec).data)); \
-    (vec).data[_pos] = (value); \
-    (vec).size++; \
+    /* Copy value first: it may refer to an element that will move. */ \
+    VECTOR_TYPE_OF_VAL(*(vec).data) _vec_ins_val = (value); \
+    private_vector_insert_n(vec, position, &_vec_ins_val, 1, "vector_insert"); \
 } while(0)
 
 /**
  * Inserts a range of elements from an array at position pos.
  * @note O(N) due to memmove + memcpy.
+ * @param arr Pointer to elements of the vector's type. Must NOT point into
+ *            the vector itself (rejected with an error).
  */
-#define vector_insert_range(vec, pos, arr, count) do { \
-    if (UNLIKELY((vec).magic != VECTOR_MAGIC_INIT)) { \
-        CLIB_PREFIX fprintf(stderr, "[x] Error: vector not initialized before 'vector_insert_range' at %s:%d\n", __FILE__, __LINE__); \
-        break; \
-    } \
-    if (UNLIKELY((arr) == NULL_PTR)) { \
-        CLIB_PREFIX fprintf(stderr, "[x] Error: source array is NULL in 'vector_insert_range' at %s:%d\n", __FILE__, __LINE__); \
-        break; \
-    } \
-    size_t _pos = (size_t)(pos); \
-    size_t _cnt = (size_t)(count); \
-    if (UNLIKELY(_pos > (vec).size)) { \
-        CLIB_PREFIX fprintf(stderr, "[x] Error: insert position out of bounds in 'vector_insert_range' at %s:%d\n", __FILE__, __LINE__); \
-        break; \
-    } \
-    if (_cnt == 0) break; \
-    size_t _ns = (vec).size + _cnt; \
-    if (_ns > (vec).capacity) { \
-        size_t _nc = VECTOR_GROW_CAPACITY((vec).capacity); \
-        if (_nc < _ns) _nc = _ns; \
-        TYPE_OF((vec).data) _nd = (TYPE_OF((vec).data))CLIB_PREFIX realloc((vec).data, _nc * sizeof(*(vec).data)); \
-        if (UNLIKELY(_nd == NULL_PTR)) { \
-            CLIB_PREFIX fprintf(stderr, "[x] Error: allocation failed in 'vector_insert_range' at %s:%d\n", __FILE__, __LINE__); \
-            break; \
-        } \
-        (vec).data     = _nd; \
-        (vec).capacity = _nc; \
-    } \
-    if (_pos < (vec).size) \
-        memmove(&(vec).data[_pos + _cnt], &(vec).data[_pos], ((vec).size - _pos) * sizeof(*(vec).data)); \
-    memcpy(&(vec).data[_pos], (arr), _cnt * sizeof(*(vec).data)); \
-    (vec).size = _ns; \
-} while(0)
-
-/* !! PRIVATE !! — Do not call directly */
-static inline int private_vector_insert_args_inline
-(
-    void *vec_ptr, size_t elem_size,
-    size_t index,
-    const void *elems, size_t count
-) 
-
-{
-    VectorBase *vec = (VectorBase *)vec_ptr;
-    if (UNLIKELY(vec->magic != VECTOR_MAGIC_INIT)) return -1;
-    if (UNLIKELY(index > vec->size))               return -1;
-    size_t new_size = vec->size + count;
-    if (UNLIKELY(new_size > vec->capacity)) {
-        size_t nc = vec->capacity == 0 ? (count < 4 ? 4 : count) : vec->capacity;
-        while (nc < new_size) nc <<= 1;
-        void *nd = CLIB_PREFIX realloc(vec->data, nc * elem_size);
-        if (UNLIKELY(nd == NULL_PTR)) return -1;
-        vec->data     = nd;
-        vec->capacity = nc;
-    }
-    memmove(
-        (char *)vec->data + (index + count) * elem_size,
-        (char *)vec->data + index * elem_size,
-        (vec->size - index) * elem_size
-    );
-    memcpy((char *)vec->data + index * elem_size, elems, count * elem_size);
-    vec->size = new_size;
-    return 0;
-}
+#define vector_insert_range(vec, pos, arr, count) \
+    private_vector_insert_n(vec, pos, arr, count, "vector_insert_range")
 
 /**
  * Inserts multiple values at index using variadic arguments.
  */
 #define vector_insert_args(vec, idx, ...) do { \
-    TYPE_OF_VAL(*(vec).data) _tmp[] = { __VA_ARGS__ }; \
-    if (private_vector_insert_args_inline(&(vec), sizeof(*(vec).data), (idx), _tmp, \
-                                          sizeof(_tmp) / sizeof(_tmp[0])) != 0) { \
-        CLIB_PREFIX fprintf(stderr, "[x] Error: vector_insert_args failed at %s:%d\n", __FILE__, __LINE__); \
-    } \
+    VECTOR_TYPE_OF_VAL(*(vec).data) _vec_ia_tmp[] = { __VA_ARGS__ }; \
+    private_vector_insert_n(vec, idx, _vec_ia_tmp, \
+                            sizeof(_vec_ia_tmp) / sizeof(_vec_ia_tmp[0]), "vector_insert_args"); \
 } while(0)
 
-/** 
+/**
  * Swaps contents of two vectors in O(1) — pointer and metadata swap, no deep copy.
- * @note Both vectors must store elements of the same type (size-checked at runtime).
+ * @note Both vectors must store elements of the same type (checked at compile time).
  */
 #define vector_swap(vec1, vec2) do { \
     VECTOR_ASSERT_SAME_TYPE(vec1, vec2); \
-    if (UNLIKELY((vec1).magic != VECTOR_MAGIC_INIT)) { \
-        CLIB_PREFIX fprintf(stderr, "[x] Error: first vector not initialized before 'vector_swap' at %s:%d\n", __FILE__, __LINE__); \
+    if (VECTOR_UNLIKELY((vec1).magic != VECTOR_MAGIC_INIT)) { \
+        private_vector_error("first vector not initialized before 'vector_swap'"); \
         break; \
     } \
-    if (UNLIKELY((vec2).magic != VECTOR_MAGIC_INIT)) { \
-        CLIB_PREFIX fprintf(stderr, "[x] Error: second vector not initialized before 'vector_swap' at %s:%d\n", __FILE__, __LINE__); \
+    if (VECTOR_UNLIKELY((vec2).magic != VECTOR_MAGIC_INIT)) { \
+        private_vector_error("second vector not initialized before 'vector_swap'"); \
         break; \
     } \
-    TYPE_OF((vec1).data) _td = (vec1).data;     (vec1).data     = (vec2).data;     (vec2).data     = _td; \
-    size_t               _ts = (vec1).size;     (vec1).size     = (vec2).size;     (vec2).size     = _ts; \
-    size_t               _tc = (vec1).capacity; (vec1).capacity = (vec2).capacity; (vec2).capacity = _tc; \
-    \
+    VECTOR_TYPE_OF((vec1).data) _vec_sw_d = (vec1).data;     (vec1).data     = (vec2).data;     (vec2).data     = _vec_sw_d; \
+    size_t                      _vec_sw_s = (vec1).size;     (vec1).size     = (vec2).size;     (vec2).size     = _vec_sw_s; \
+    size_t                      _vec_sw_c = (vec1).capacity; (vec1).capacity = (vec2).capacity; (vec2).capacity = _vec_sw_c; \
 } while(0)
 
 #endif /* VECTOR_H */
