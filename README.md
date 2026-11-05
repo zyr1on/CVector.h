@@ -12,6 +12,11 @@ This header-only library provides a fast, safe, and easy-to-use generic dynamic 
 -  **No Hidden Allocations:** All memory management is explicit and safe.
 ---
 
+> [!NOTE]
+> `vector.h` requires **GCC or Clang** (it uses GNU statement expressions).
+> It builds with `-std=c99`, `c11`, `c17`, `gnu11`, `c23`, and C++11 or later.
+> MSVC is not supported.
+
 ##  Quick Start
 
 ```c
