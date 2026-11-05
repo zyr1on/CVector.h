@@ -12,14 +12,28 @@
     - Type-generic: Instantiates vectors for any type via macros.
     - Dynamic: Grows and shrinks automatically as needed.
     - Safety: Bounds-checked access (vector_at/front/back), initialization tracking,
-              overflow-checked growth. Checks are always on.
+              overflow-checked growth. Programmer-error checks are removed in
+              release builds (-DNDEBUG); see "Build Modes" below.
     - Modern: Includes handy iteration and batch operations.
+
+    @par API overview
+    - Lifetime:  vector_init, vector_destroy, vector_copy (deep), vector_swap
+    - Add:       vector_push_back, vector_emplace_back, vector_push_back_args,
+                 vector_insert, vector_insert_args, vector_insert_range
+    - Remove:    vector_pop_back, vector_erase, vector_erase_range, vector_clear
+    - Access:    vector_at, vector_front, vector_back, vec.data[i], vector_foreach
+    - Search:    vector_find, vector_find_custom
+    - Capacity:  vector_size, vector_capacity, vector_empty, vector_bytesize,
+                 vector_reserve, vector_resize, vector_resize_full, vector_shrink_to_fit
+    - Config:    VECTOR_NO_CHECKS / VECTOR_CHECKS / NDEBUG, VECTOR_ON_ERROR()
 
     @warning
     - Always initialize your vector with `vector_init()` before use.
     - Always destroy your vector with `vector_destroy()` after use to avoid memory leaks.
+    - `b = a;` copies only the struct (shared buffer -> double free). Use vector_copy.
     - Requires GCC or Clang: uses GNU statement expressions `({ ... })` and `__typeof__`.
-      Works with -std=gnu99/gnu11/c11/c17/c23 in C, and C++11 or later in C++.
+      Works with -std=c99/c11/c17/c23 (also with -pedantic) and gnu* modes in C,
+      and C++11 or later in C++ (including inside templates).
       MSVC is not supported.
     - All macros may evaluate the `vec` argument more than once. Pass a plain
       variable (or `*ptr`), not an expression with side effects.
@@ -56,7 +70,8 @@
     */
     #define VECTOR_STD               std::
     #define VECTOR_TYPE_OF(x)        decltype(x)
-    #define VECTOR_TYPE_OF_VAL(x)    std::remove_reference<decltype(x)>::type
+    /* `typename` makes the macros usable inside templates (dependent types). */
+    #define VECTOR_TYPE_OF_VAL(x)    typename std::remove_reference<decltype(x)>::type
     #define VECTOR_NULL              nullptr
 #else
 /* Standard C Compiler Configuration */
@@ -79,9 +94,54 @@
 #define VECTOR_LIKELY(x)    __builtin_expect(!!(x), 1)
 #define VECTOR_UNLIKELY(x)  __builtin_expect(!!(x), 0)
 
-/* Internal: prints "[x] Error: <msg> at file:line" to stderr. */
+/**
+ * @section Build Modes (checks on / off)
+ * -------------------------------------------------------------------------
+ * Checks for programmer errors (uninitialized vector, out-of-bounds index,
+ * empty pop/front/back, bad insert position, overlapping insert source,
+ * double destroy) follow the same rule as assert():
+ *
+ *   - Debug   (no NDEBUG)              -> checks ON
+ *   - Release (-DNDEBUG, e.g. CMake Release) -> checks OFF
+ *
+ * Override with:
+ *   -DVECTOR_NO_CHECKS   force checks OFF in any build
+ *   -DVECTOR_CHECKS      force checks ON even with NDEBUG
+ *
+ * Allocation-failure and size-overflow checks are ALWAYS kept: those are
+ * runtime conditions, not programmer errors, and they sit on the cold path.
+ *
+ * With checks OFF, misuse is undefined behaviour (like std::vector::operator[]).
+ */
+#if defined(VECTOR_NO_CHECKS)
+    #define VECTOR_CHECKS_ENABLED 0
+#elif defined(VECTOR_CHECKS) || !defined(NDEBUG)
+    #define VECTOR_CHECKS_ENABLED 1
+#else
+    #define VECTOR_CHECKS_ENABLED 0
+#endif
+
+/* Internal: true when a programmer-error check is enabled and fails.
+ * With checks OFF this is a constant 0 and the whole branch is removed. */
+#define private_vector_check(cond) (VECTOR_CHECKS_ENABLED && VECTOR_UNLIKELY(cond))
+
+/**
+ * @brief Error hook, called after every error message (programmer errors
+ *        while checks are ON, and allocation / overflow failures always).
+ *        Default: do nothing (the operation is skipped and execution continues).
+ *
+ * @example Stop at the first error (handy in tests / debugging):
+ *   #define VECTOR_ON_ERROR() abort()
+ *   #include "vector.h"
+ */
+#ifndef VECTOR_ON_ERROR
+    #define VECTOR_ON_ERROR() ((void)0)
+#endif
+
+/* Internal: prints "[x] Error: <msg> at file:line" to stderr, then runs the hook. */
 #define private_vector_error(msg) \
-    VECTOR_STD fprintf(stderr, "[x] Error: " msg " at %s:%d\n", __FILE__, __LINE__)
+    (VECTOR_STD fprintf(stderr, "[x] Error: " msg " at %s:%d\n", __FILE__, __LINE__), \
+     VECTOR_ON_ERROR())
 
 /**
  * @section Compile-time Type Safety
@@ -96,7 +156,7 @@
 #ifdef __cplusplus
     #define VECTOR_ASSERT_TRIVIAL(vec) \
         static_assert( \
-            std::is_trivially_copyable<std::remove_pointer<VECTOR_TYPE_OF((vec).data)>::type>::value, \
+            std::is_trivially_copyable<typename std::remove_pointer<VECTOR_TYPE_OF((vec).data)>::type>::value, \
             "vector<T>: T must be trivially copyable — realloc is unsafe for types with constructors/destructors" \
         )
 #else
@@ -119,12 +179,16 @@
             >::value, \
             "vector_swap: both vectors must store the same type" \
         )
-#else
+#elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
     #define VECTOR_ASSERT_SAME_TYPE(v1, v2) \
         _Static_assert( \
             sizeof(*(v1).data) == sizeof(*(v2).data), \
-            "vector_swap: element size mismatch" \
+            "both vectors must store the same type (element size mismatch)" \
         )
+#else
+    /* C99: no _Static_assert; a negative array size fails compilation instead. */
+    #define VECTOR_ASSERT_SAME_TYPE(v1, v2) \
+        ((void)sizeof(char[(sizeof(*(v1).data) == sizeof(*(v2).data)) ? 1 : -1]))
 #endif
 
 
@@ -161,8 +225,11 @@
  * Strategy: double the capacity (minimum 4) until it fits; if doubling would
  * overflow, fall back to exactly `needed`.
  * Returns the new buffer and writes the new capacity, or returns NULL
- * (old buffer untouched) on overflow / allocation failure. */
-static inline void *private_vector_grow
+ * (old buffer untouched) on overflow / allocation failure.
+ * Marked cold + noinline: growth is rare (amortized), so keeping it out of
+ * line keeps every push_back / insert call site small. */
+__attribute__((cold, noinline, unused))
+static void *private_vector_grow
 (
     void *data, size_t elem_size,
     size_t capacity, size_t needed,
@@ -210,7 +277,7 @@ static inline void *private_vector_grow
  *              It may refer to the vector itself (e.g. vector_back(vec)).
  */
 #define vector_push_back(vec, value) do { \
-    if (VECTOR_UNLIKELY((vec).magic != VECTOR_MAGIC_INIT)) { \
+    if (private_vector_check((vec).magic != VECTOR_MAGIC_INIT)) { \
         private_vector_error("vector not initialized before 'vector_push_back'"); \
         break; \
     } \
@@ -239,9 +306,9 @@ static inline void *private_vector_grow
  * @param vec The vector structure to modify.
  * @return    A pointer to the newly reserved slot, or NULL on failure.
  */
-#define private_vector_emplace_back_ptr(vec) ({ \
+#define private_vector_emplace_back_ptr(vec) __extension__ ({ \
     VECTOR_TYPE_OF_VAL((vec).data) _vec_ep_slot = VECTOR_NULL; \
-    if (VECTOR_UNLIKELY((vec).magic != VECTOR_MAGIC_INIT)) { \
+    if (private_vector_check((vec).magic != VECTOR_MAGIC_INIT)) { \
         private_vector_error("vector not initialized before 'vector_emplace_back'"); \
     } else { \
         int _vec_ep_ok = 1; \
@@ -298,13 +365,13 @@ static inline void *private_vector_grow
  * @brief Bounds-checked element access. Aborts on out-of-bounds or uninitialized vector.
  * @note  Returns an lvalue: `vector_at(v, i) = x;` and `&vector_at(v, i)` both work.
  */
-#define vector_at(vec, index) (*({ \
+#define vector_at(vec, index) (*__extension__ ({ \
     size_t _vec_at_i = (size_t)(index); \
-    if (VECTOR_UNLIKELY((vec).magic != VECTOR_MAGIC_INIT)) { \
+    if (private_vector_check((vec).magic != VECTOR_MAGIC_INIT)) { \
         private_vector_error("vector not initialized before 'vector_at'"); \
         VECTOR_STD abort(); \
     } \
-    if (VECTOR_UNLIKELY(_vec_at_i >= (vec).size)) { \
+    if (private_vector_check(_vec_at_i >= (vec).size)) { \
         VECTOR_STD fprintf(stderr, "[x] Error: 'vector_at' index %llu out of bounds (size %llu) at %s:%d\n", \
                            (unsigned long long)_vec_at_i, (unsigned long long)(vec).size, __FILE__, __LINE__); \
         VECTOR_STD abort(); \
@@ -315,8 +382,8 @@ static inline void *private_vector_grow
 /**
  * @brief Returns the last element (lvalue). Aborts on empty or uninitialized vector.
  */
-#define vector_back(vec) (*({ \
-    if (VECTOR_UNLIKELY((vec).magic != VECTOR_MAGIC_INIT || (vec).size == 0)) { \
+#define vector_back(vec) (*__extension__ ({ \
+    if (private_vector_check((vec).magic != VECTOR_MAGIC_INIT || (vec).size == 0)) { \
         private_vector_error("'vector_back' on empty/uninitialized vector"); \
         VECTOR_STD abort(); \
     } \
@@ -326,8 +393,8 @@ static inline void *private_vector_grow
 /**
  * @brief Returns the first element (lvalue). Aborts on empty or uninitialized vector.
  */
-#define vector_front(vec) (*({ \
-    if (VECTOR_UNLIKELY((vec).magic != VECTOR_MAGIC_INIT || (vec).size == 0)) { \
+#define vector_front(vec) (*__extension__ ({ \
+    if (private_vector_check((vec).magic != VECTOR_MAGIC_INIT || (vec).size == 0)) { \
         private_vector_error("'vector_front' on empty/uninitialized vector"); \
         VECTOR_STD abort(); \
     } \
@@ -338,11 +405,11 @@ static inline void *private_vector_grow
  * Removes the last element from the vector.
  */
 #define vector_pop_back(vec) do { \
-    if (VECTOR_UNLIKELY((vec).magic != VECTOR_MAGIC_INIT)) { \
+    if (private_vector_check((vec).magic != VECTOR_MAGIC_INIT)) { \
         private_vector_error("vector not initialized before 'vector_pop_back'"); \
         break; \
     } \
-    if (VECTOR_UNLIKELY((vec).size == 0)) { \
+    if (private_vector_check((vec).size == 0)) { \
         private_vector_error("'vector_pop_back' on empty vector"); \
         break; \
     } \
@@ -353,7 +420,7 @@ static inline void *private_vector_grow
  * Resets vector size to 0 without freeing memory.
  */
 #define vector_clear(vec) do { \
-    if (VECTOR_UNLIKELY((vec).magic != VECTOR_MAGIC_INIT)) { \
+    if (private_vector_check((vec).magic != VECTOR_MAGIC_INIT)) { \
         private_vector_error("vector not initialized before 'vector_clear'"); \
         break; \
     } \
@@ -367,11 +434,11 @@ static inline void *private_vector_grow
  * @param vec The vector structure to destroy.
  */
 #define vector_destroy(vec) do { \
-    if ((vec).magic == VECTOR_MAGIC_DESTROYED) { \
+    if (private_vector_check((vec).magic == VECTOR_MAGIC_DESTROYED)) { \
         private_vector_error("vector already destroyed"); \
         break; \
     } \
-    if ((vec).magic != VECTOR_MAGIC_INIT) { \
+    if (private_vector_check((vec).magic != VECTOR_MAGIC_INIT)) { \
         private_vector_error("vector not initialized before destroy"); \
         break; \
     } \
@@ -387,7 +454,7 @@ static inline void *private_vector_grow
  * No-op if current capacity already satisfies the request.
  */
 #define vector_reserve(vec, new_capacity) do { \
-    if (VECTOR_UNLIKELY((vec).magic != VECTOR_MAGIC_INIT)) { \
+    if (private_vector_check((vec).magic != VECTOR_MAGIC_INIT)) { \
         private_vector_error("vector not initialized before 'vector_reserve'"); \
         break; \
     } \
@@ -415,7 +482,7 @@ static inline void *private_vector_grow
  * @param def_val  Value to fill new slots with (if expanding).
  */
 #define vector_resize(vec, new_size, def_val) do { \
-    if (VECTOR_UNLIKELY((vec).magic != VECTOR_MAGIC_INIT)) { \
+    if (private_vector_check((vec).magic != VECTOR_MAGIC_INIT)) { \
         private_vector_error("vector not initialized before 'vector_resize'"); \
         break; \
     } \
@@ -440,7 +507,7 @@ static inline void *private_vector_grow
  *        so existing data is not preserved.
  */
 #define vector_resize_full(vec, new_size, def_val) do { \
-    if (VECTOR_UNLIKELY((vec).magic != VECTOR_MAGIC_INIT)) { \
+    if (private_vector_check((vec).magic != VECTOR_MAGIC_INIT)) { \
         private_vector_error("vector not initialized before 'vector_resize_full'"); \
         break; \
     } \
@@ -461,7 +528,7 @@ static inline void *private_vector_grow
  * If the vector is empty, fully deallocates the buffer.
  */
 #define vector_shrink_to_fit(vec) do { \
-    if (VECTOR_UNLIKELY((vec).magic != VECTOR_MAGIC_INIT)) { \
+    if (private_vector_check((vec).magic != VECTOR_MAGIC_INIT)) { \
         private_vector_error("vector not initialized before 'vector_shrink_to_fit'"); \
         break; \
     } \
@@ -500,9 +567,9 @@ static inline void *private_vector_grow
  *                 Both arguments are passed by value.
  * @return Index of first match (ptrdiff_t), or -1 if not found.
  */
-#define vector_find_custom(vec, value, cmp_func) ({ \
+#define vector_find_custom(vec, value, cmp_func) __extension__ ({ \
     ptrdiff_t _vec_fc_res = -1; \
-    if (VECTOR_UNLIKELY((vec).magic != VECTOR_MAGIC_INIT)) { \
+    if (private_vector_check((vec).magic != VECTOR_MAGIC_INIT)) { \
         private_vector_error("vector not initialized before 'vector_find_custom'"); \
     } else { \
         VECTOR_TYPE_OF_VAL(*(vec).data) _vec_fc_val = (value); \
@@ -532,9 +599,9 @@ static inline void *private_vector_grow
  *       Do NOT use with structs or strings — use vector_find_custom instead.
  * @return Index of first match (ptrdiff_t), or -1 if not found.
  */
-#define vector_find(vec, value) ({ \
+#define vector_find(vec, value) __extension__ ({ \
     ptrdiff_t _vec_fd_res = -1; \
-    if (VECTOR_UNLIKELY((vec).magic != VECTOR_MAGIC_INIT)) { \
+    if (private_vector_check((vec).magic != VECTOR_MAGIC_INIT)) { \
         private_vector_error("vector not initialized before 'vector_find'"); \
     } else { \
         VECTOR_TYPE_OF_VAL(*(vec).data) _vec_fd_val = (value); \
@@ -563,23 +630,23 @@ static inline void *private_vector_grow
  * `fname` is a string literal used in error messages.
  * `src` must have the vector's element type and must not point into the vector. */
 #define private_vector_insert_n(vec, pos, src, count, fname) do { \
-    if (VECTOR_UNLIKELY((vec).magic != VECTOR_MAGIC_INIT)) { \
+    if (private_vector_check((vec).magic != VECTOR_MAGIC_INIT)) { \
         private_vector_error("vector not initialized before '" fname "'"); \
         break; \
     } \
     const VECTOR_TYPE_OF_VAL(*(vec).data) *_vec_in_src = (src); \
     size_t _vec_in_pos = (size_t)(pos); \
     size_t _vec_in_cnt = (size_t)(count); \
-    if (VECTOR_UNLIKELY(_vec_in_pos > (vec).size)) { \
+    if (private_vector_check(_vec_in_pos > (vec).size)) { \
         private_vector_error("insert position out of bounds in '" fname "'"); \
         break; \
     } \
     if (_vec_in_cnt == 0) break; \
-    if (VECTOR_UNLIKELY(_vec_in_src == VECTOR_NULL)) { \
+    if (private_vector_check(_vec_in_src == VECTOR_NULL)) { \
         private_vector_error("source array is NULL in '" fname "'"); \
         break; \
     } \
-    if (VECTOR_UNLIKELY((vec).data != VECTOR_NULL && \
+    if (private_vector_check((vec).data != VECTOR_NULL && \
             (uintptr_t)_vec_in_src >= (uintptr_t)(vec).data && \
             (uintptr_t)_vec_in_src <  (uintptr_t)((vec).data + (vec).size))) { \
         private_vector_error("source array points into the vector itself in '" fname "'"); \
@@ -652,16 +719,90 @@ static inline void *private_vector_grow
 } while(0)
 
 /**
+ * Removes `count` elements starting at position `pos`, shifting the rest left.
+ * Capacity is unchanged.
+ * @note O(N) due to memmove.
+ * @param vec   The vector to modify.
+ * @param pos   Index of the first element to remove.
+ * @param count Number of elements to remove (pos + count must be <= size).
+ */
+#define vector_erase_range(vec, pos, count) \
+    private_vector_erase_n(vec, pos, count, "vector_erase_range")
+
+/**
+ * Removes the element at position `pos`, shifting the rest left.
+ * @note O(N) due to memmove. To remove the last element use vector_pop_back.
+ */
+#define vector_erase(vec, pos) \
+    private_vector_erase_n(vec, pos, 1, "vector_erase")
+
+/* !! PRIVATE !! — Do not call directly. */
+#define private_vector_erase_n(vec, pos, count, fname) do { \
+    if (private_vector_check((vec).magic != VECTOR_MAGIC_INIT)) { \
+        private_vector_error("vector not initialized before '" fname "'"); \
+        break; \
+    } \
+    size_t _vec_er_pos = (size_t)(pos); \
+    size_t _vec_er_cnt = (size_t)(count); \
+    if (private_vector_check(_vec_er_pos > (vec).size || _vec_er_cnt > (vec).size - _vec_er_pos)) { \
+        private_vector_error("range out of bounds in '" fname "'"); \
+        break; \
+    } \
+    if (_vec_er_cnt == 0) break; \
+    VECTOR_STD memmove(&(vec).data[_vec_er_pos], &(vec).data[_vec_er_pos + _vec_er_cnt], \
+                       ((vec).size - _vec_er_pos - _vec_er_cnt) * sizeof(*(vec).data)); \
+    (vec).size -= _vec_er_cnt; \
+} while(0)
+
+/**
+ * Deep copy: replaces the contents of `dst` with a copy of `src`'s elements.
+ * Both vectors must be initialized and store the same type. `dst` keeps its
+ * own buffer (grown if needed); `src` is unchanged.
+ *
+ * @note Plain assignment `dst = src;` is a SHALLOW copy: both would share one
+ *       buffer, leading to double free on destroy. Use vector_copy instead.
+ */
+#define vector_copy(dst, src) do { \
+    VECTOR_ASSERT_SAME_TYPE(dst, src); \
+    if (private_vector_check((dst).magic != VECTOR_MAGIC_INIT)) { \
+        private_vector_error("destination vector not initialized before 'vector_copy'"); \
+        break; \
+    } \
+    if (private_vector_check((src).magic != VECTOR_MAGIC_INIT)) { \
+        private_vector_error("source vector not initialized before 'vector_copy'"); \
+        break; \
+    } \
+    /* Type check in C: assigning pointers of different types is diagnosed. */ \
+    VECTOR_TYPE_OF((dst).data) _vec_cp_src = (src).data; \
+    size_t _vec_cp_n = (src).size; \
+    if ((void *)&(dst) == (void *)&(src)) break; \
+    if (_vec_cp_n > (dst).capacity) { \
+        size_t _vec_cp_nc = 0; \
+        void *_vec_cp_nd = private_vector_grow((dst).data, sizeof(*(dst).data), \
+                                               (dst).capacity, _vec_cp_n, &_vec_cp_nc); \
+        if (VECTOR_UNLIKELY(_vec_cp_nd == VECTOR_NULL)) { \
+            private_vector_error("allocation failed in 'vector_copy'"); \
+            break; \
+        } \
+        (dst).data     = (VECTOR_TYPE_OF((dst).data))_vec_cp_nd; \
+        (dst).capacity = _vec_cp_nc; \
+    } \
+    if (_vec_cp_n > 0) \
+        VECTOR_STD memcpy((dst).data, _vec_cp_src, _vec_cp_n * sizeof(*(dst).data)); \
+    (dst).size = _vec_cp_n; \
+} while(0)
+
+/**
  * Swaps contents of two vectors in O(1) — pointer and metadata swap, no deep copy.
  * @note Both vectors must store elements of the same type (checked at compile time).
  */
 #define vector_swap(vec1, vec2) do { \
     VECTOR_ASSERT_SAME_TYPE(vec1, vec2); \
-    if (VECTOR_UNLIKELY((vec1).magic != VECTOR_MAGIC_INIT)) { \
+    if (private_vector_check((vec1).magic != VECTOR_MAGIC_INIT)) { \
         private_vector_error("first vector not initialized before 'vector_swap'"); \
         break; \
     } \
-    if (VECTOR_UNLIKELY((vec2).magic != VECTOR_MAGIC_INIT)) { \
+    if (private_vector_check((vec2).magic != VECTOR_MAGIC_INIT)) { \
         private_vector_error("second vector not initialized before 'vector_swap'"); \
         break; \
     } \
